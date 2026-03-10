@@ -10,7 +10,6 @@ requires-python = ">=3.12"
 dependencies = [
     "typer>=0.15",
     "notion-client>=3.0",
-    "rich>=13",
 ]
 
 [project.scripts]
@@ -19,12 +18,8 @@ notion = "notion_cli.cli:app"
 [dependency-groups]
 dev = [
     "pytest>=8",
-    "pytest-asyncio>=0.24",
     "ruff>=0.9",
 ]
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
 
 [tool.ruff]
 target-version = "py312"

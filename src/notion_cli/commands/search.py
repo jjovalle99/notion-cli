@@ -49,9 +49,18 @@ async def search(
     if type is not None:
         kwargs["filter"] = {"property": "object", "value": type}
 
+    all_results: list[object] = []
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.search(**kwargs), timeout)
+        all_results.extend(result["results"])
 
+        while result.get("has_more") and result.get("next_cursor") and result.get("results"):
+            kwargs["start_cursor"] = result["next_cursor"]
+            result = await await_with_timeout(client.search(**kwargs), timeout)
+            all_results.extend(result["results"])
+
+    result["results"] = all_results
+    result["has_more"] = False
     typer.echo(format_json(result))

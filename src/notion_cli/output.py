@@ -20,4 +20,4 @@ def format_error(error_type: str, message: str, *, suggestion: str | None = None
     payload: dict[str, str] = {"error_type": error_type, "message": message}
     if suggestion is not None:
         payload["suggestion"] = suggestion
-    return json.dumps(payload, indent=2)
+    return json.dumps(payload)

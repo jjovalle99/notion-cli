@@ -54,8 +54,10 @@ async def get(
         result = await await_with_timeout(client.blocks.children.list(bid), timeout)
         all_results.extend(result["results"])
 
-        while result.get("has_more"):
-            result = await await_with_timeout(client.blocks.children.list(bid, start_cursor=result["next_cursor"]), timeout)
+        while result.get("has_more") and result.get("next_cursor") and result.get("results"):
+            result = await await_with_timeout(
+                client.blocks.children.list(bid, start_cursor=result["next_cursor"]), timeout
+            )
             all_results.extend(result["results"])
 
     result["results"] = all_results

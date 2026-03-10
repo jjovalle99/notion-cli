@@ -4,8 +4,7 @@ app = typer.Typer(
     name="notion",
     help=(
         "Agent-friendly CLI for the Notion API.\n\n"
-        "Every command outputs JSON to stdout by default. "
-        "Use --human for rich-formatted human-readable output. "
+        "Every command outputs compact JSON to stdout by default. "
         "Errors are written as JSON to stderr.\n\n"
         "Authentication: set NOTION_API_KEY environment variable "
         "or pass --token on any command."
