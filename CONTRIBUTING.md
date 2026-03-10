@@ -3,7 +3,7 @@
 ## Quick start
 
 ```bash
-git clone https://github.com/youruser/notion-cli.git
+git clone https://github.com/jjovalle99/notion-cli.git
 cd notion-cli
 uv sync
 uv run pytest           # run tests

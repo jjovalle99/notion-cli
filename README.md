@@ -92,7 +92,7 @@ Exit codes: 0=ok, 1=error, 2=bad args, 3=not found, 4=permission denied, 5=rate 
 ## Development
 
 ```bash
-git clone https://github.com/youruser/notion-cli.git
+git clone https://github.com/jjovalle99/notion-cli.git
 cd notion-cli
 uv sync
 uv run pytest

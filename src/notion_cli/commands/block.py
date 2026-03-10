@@ -46,7 +46,7 @@ async def get(
     """List child blocks of a page or block.
 
     Returns raw JSON blocks by default. Use --markdown to convert the output
-    to readable Markdown text. If a child block has has_children=true, call
+    to readable Markdown text. If a child block has_children=true, call
     this command again with that block's ID to recurse deeper.
 
     Examples:

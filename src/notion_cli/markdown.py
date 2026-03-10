@@ -72,7 +72,8 @@ def _block_to_md(block: dict[str, Any], number: int) -> str:
         return "---"
 
     if block_type == "image":
-        url = data.get("file", data.get("external", {})).get("url", "")
+        file_data = data.get("file") or data.get("external") or {}
+        url = file_data.get("url", "") if isinstance(file_data, dict) else ""
         caption = rich_text_to_md(data.get("caption", []))
         return f"![{caption}]({url})"
 
@@ -83,7 +84,8 @@ def _block_to_md(block: dict[str, Any], number: int) -> str:
 
     if block_type == "callout":
         icon = data.get("icon", {}).get("emoji", "")
-        return f"> {icon} {text}".strip()
+        parts = [p for p in [icon, text] if p]
+        return f"> {' '.join(parts)}" if parts else ">"
 
     if block_type == "equation":
         return f"$${data.get('expression', '')}$$"
