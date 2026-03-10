@@ -25,6 +25,12 @@ from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
 from notion_cli.parsing import extract_id
 
+your_app = typer.Typer(
+    name="yourgroup",
+    help="Description of your command group.",
+    no_args_is_help=True,
+)
+
 @your_app.command()
 @run_async
 async def your_command(

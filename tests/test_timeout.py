@@ -26,7 +26,7 @@ def test_negative_timeout_gives_error(runner: CliRunner, mock_client: AsyncMock)
     )
 
     assert result.exit_code == 1
-    assert "must be positive" in result.output.lower() or "unexpected" in result.output.lower()
+    assert "must be positive" in result.output.lower()
 
 
 def test_zero_timeout_gives_error(runner: CliRunner, mock_client: AsyncMock) -> None:

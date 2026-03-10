@@ -191,8 +191,13 @@ async def update(
     if properties is not None:
         parsed_props = json.loads(properties)
         if title is not None and "title" in parsed_props:
+            from notion_cli.output import format_error
+
             typer.echo(
-                "Error: --title conflicts with 'title' key in --properties. Use one or the other.",
+                format_error(
+                    "conflicting_args",
+                    "--title conflicts with 'title' key in --properties. Use one or the other.",
+                ),
                 err=True,
             )
             raise SystemExit(ExitCode.BAD_ARGS)
