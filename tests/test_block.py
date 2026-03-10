@@ -43,6 +43,39 @@ class TestBlockGet:
         assert len(data["results"]) == 2
         assert mock_client.blocks.children.list.call_count == 2
 
+    def test_get_markdown_output(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.blocks.children.list.return_value = {
+            "results": [
+                {
+                    "type": "heading_1",
+                    "heading_1": {
+                        "rich_text": [
+                            {"type": "text", "text": {"content": "Hello"}, "annotations": {}}
+                        ]
+                    },
+                },
+                {
+                    "type": "paragraph",
+                    "paragraph": {
+                        "rich_text": [
+                            {"type": "text", "text": {"content": "World"}, "annotations": {}}
+                        ]
+                    },
+                },
+            ],
+            "has_more": False,
+        }
+
+        result = runner.invoke(
+            app, ["block", "get", BLOCK_ID, "--markdown"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        assert "# Hello" in result.stdout
+        assert "World" in result.stdout
+        # Should NOT be JSON
+        assert "{" not in result.stdout
+
 
 class TestBlockAppend:
     def test_append_markdown(self, runner: CliRunner, mock_client: AsyncMock) -> None:
