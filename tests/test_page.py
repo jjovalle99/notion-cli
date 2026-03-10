@@ -74,7 +74,7 @@ class TestPageCreate:
 
         assert result.exit_code == 0
         call_kwargs = mock_client.pages.create.call_args.kwargs
-        assert "markdown" in call_kwargs
+        assert "content" in call_kwargs
 
     def test_create_with_icon(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.pages.create.return_value = MOCK_PAGE
@@ -170,7 +170,7 @@ class TestPageUpdate:
 
 class TestPageMove:
     def test_move_page(self, runner: CliRunner, mock_client: AsyncMock) -> None:
-        mock_client.pages.update.return_value = MOCK_PAGE
+        mock_client.pages.move.return_value = MOCK_PAGE
 
         result = runner.invoke(
             app,
@@ -179,7 +179,7 @@ class TestPageMove:
         )
 
         assert result.exit_code == 0
-        call_kwargs = mock_client.pages.update.call_args.kwargs
+        call_kwargs = mock_client.pages.move.call_args.kwargs
         assert "parent" in call_kwargs
 
 

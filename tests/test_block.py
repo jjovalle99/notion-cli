@@ -78,13 +78,19 @@ class TestBlockGet:
 
 
 class TestBlockAppend:
-    def test_append_markdown(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+    def test_append_children(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.blocks.children.append.return_value = MOCK_APPEND
+        children_json = (
+            '[{"type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": "Hello"}}]}}]'
+        )
 
         result = runner.invoke(
             app,
-            ["block", "append", PARENT_ID, "--content", "# New heading\nSome text"],
+            ["block", "append", PARENT_ID, "--children", children_json],
             env={"NOTION_API_KEY": "secret"},
         )
 
         assert result.exit_code == 0
+        call_kwargs = mock_client.blocks.children.append.call_args.kwargs
+        assert "children" in call_kwargs
+        assert len(call_kwargs["children"]) == 1

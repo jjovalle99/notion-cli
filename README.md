@@ -34,7 +34,7 @@ notion db query <id>               Query database rows with filter and sort
 notion db create                   Create a database
 notion db update <id>              Update database title or schema
 notion block get <id>              Get page content blocks (use --markdown for text)
-notion block append <id>           Append markdown content to a page
+notion block append <id>           Append block objects (JSON) to a page
 notion comment add <id>            Add a comment to a page
 notion comment list <id>           List comments on a page
 notion user list                   List workspace users

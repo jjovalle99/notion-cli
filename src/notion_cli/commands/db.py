@@ -56,7 +56,7 @@ async def query(
     db_id: Annotated[
         str,
         typer.Argument(
-            help="Database ID or URL to query.",
+            help="Database or data source ID/URL to query.",
         ),
     ],
     filter: Annotated[
@@ -106,7 +106,7 @@ async def query(
     resolved_token = resolve_token(token=token)
     did = extract_id(db_id)
 
-    kwargs: dict[str, object] = {"database_id": did}
+    kwargs: dict[str, object] = {}
     if filter is not None:
         kwargs["filter"] = json.loads(filter)
     if sort is not None:
@@ -118,7 +118,7 @@ async def query(
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.databases.query(**kwargs), timeout)
+        result = await await_with_timeout(client.data_sources.query(did, **kwargs), timeout)
         all_results.extend(result["results"])
 
         while (
@@ -128,7 +128,7 @@ async def query(
             and (limit is None or len(all_results) < limit)
         ):
             kwargs["start_cursor"] = result["next_cursor"]
-            result = await await_with_timeout(client.databases.query(**kwargs), timeout)
+            result = await await_with_timeout(client.data_sources.query(did, **kwargs), timeout)
             all_results.extend(result["results"])
 
     if limit is not None:
@@ -196,7 +196,7 @@ async def create(
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.databases.create(**kwargs), timeout)
+        result = await await_with_timeout(client.data_sources.create(**kwargs), timeout)
     typer.echo(format_json(result))
 
 
@@ -236,7 +236,7 @@ async def update(
     resolved_token = resolve_token(token=token)
     did = extract_id(db_id)
 
-    kwargs: dict[str, object] = {"database_id": did}
+    kwargs: dict[str, object] = {}
     if title is not None:
         kwargs["title"] = [{"text": {"content": title}}]
     if properties is not None:
@@ -245,5 +245,5 @@ async def update(
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.databases.update(**kwargs), timeout)
+        result = await await_with_timeout(client.data_sources.update(did, **kwargs), timeout)
     typer.echo(format_json(result))
