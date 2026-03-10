@@ -61,7 +61,7 @@ def read_content(value: str) -> str:
                 + "\n"
             )
             raise SystemExit(ExitCode.BAD_ARGS)
-        except (UnicodeDecodeError, IsADirectoryError):
+        except (UnicodeDecodeError, IsADirectoryError, PermissionError):
             sys.stderr.write(
                 format_error(
                     "file_read_error",
