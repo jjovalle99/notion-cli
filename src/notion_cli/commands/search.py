@@ -2,7 +2,7 @@ from typing import Annotated
 
 import typer
 
-from notion_cli._async import run_async
+from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
@@ -49,12 +49,9 @@ async def search(
     if type is not None:
         kwargs["filter"] = {"property": "object", "value": type}
 
-    import asyncio
-
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        coro = client.search(**kwargs)
-        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        result = await await_with_timeout(client.search(**kwargs), timeout)
 
     typer.echo(format_json(result))

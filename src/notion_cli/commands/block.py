@@ -2,7 +2,7 @@ from typing import Annotated
 
 import typer
 
-from notion_cli._async import run_async
+from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
@@ -48,18 +48,14 @@ async def get(
     resolved_token = resolve_token(token=token)
     bid = extract_id(block_id)
     all_results: list[object] = []
-    import asyncio
-
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        coro = client.blocks.children.list(bid)
-        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        result = await await_with_timeout(client.blocks.children.list(bid), timeout)
         all_results.extend(result["results"])
 
         while result.get("has_more"):
-            coro = client.blocks.children.list(bid, start_cursor=result["next_cursor"])
-            result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+            result = await await_with_timeout(client.blocks.children.list(bid, start_cursor=result["next_cursor"]), timeout)
             all_results.extend(result["results"])
 
     result["results"] = all_results
@@ -104,11 +100,8 @@ async def append(
     pid = extract_id(parent_id)
     md = read_content(content)
 
-    import asyncio
-
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        coro = client.blocks.children.append(pid, markdown=md)
-        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        result = await await_with_timeout(client.blocks.children.append(pid, markdown=md), timeout)
     typer.echo(format_json(result))

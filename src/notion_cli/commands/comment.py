@@ -2,7 +2,7 @@ from typing import Annotated
 
 import typer
 
-from notion_cli._async import run_async
+from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
@@ -49,16 +49,13 @@ async def add(
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
 
-    import asyncio
-
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        coro = client.comments.create(
+        result = await await_with_timeout(client.comments.create(
             parent={"page_id": pid},
             rich_text=[{"text": {"content": body}}],
-        )
-        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        ), timeout)
     typer.echo(format_json(result))
 
 
@@ -85,18 +82,14 @@ async def list_comments(
     pid = extract_id(page_id)
 
     all_results: list[object] = []
-    import asyncio
-
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        coro = client.comments.list(block_id=pid)
-        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        result = await await_with_timeout(client.comments.list(block_id=pid), timeout)
         all_results.extend(result["results"])
 
         while result.get("has_more"):
-            coro = client.comments.list(block_id=pid, start_cursor=result["next_cursor"])
-            result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+            result = await await_with_timeout(client.comments.list(block_id=pid, start_cursor=result["next_cursor"]), timeout)
             all_results.extend(result["results"])
 
     result["results"] = all_results

@@ -2,7 +2,7 @@ from typing import Annotated
 
 import typer
 
-from notion_cli._async import run_async
+from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
@@ -42,13 +42,10 @@ async def get(
     """
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
-    import asyncio
-
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        coro = client.pages.retrieve(pid)
-        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        result = await await_with_timeout(client.pages.retrieve(pid), timeout)
     typer.echo(format_json(result))
 
 
@@ -120,13 +117,10 @@ async def create(
     if icon is not None:
         kwargs["icon"] = {"type": "emoji", "emoji": icon}
 
-    import asyncio
-
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        coro = client.pages.create(**kwargs)
-        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        result = await await_with_timeout(client.pages.create(**kwargs), timeout)
     typer.echo(format_json(result))
 
 
@@ -155,12 +149,12 @@ async def update(
         ),
     ] = None,
     archive: Annotated[
-        bool,
+        bool | None,
         typer.Option(
-            "--archive/--unarchive",
-            help="Archive or unarchive the page.",
+            "--archive/--no-archive",
+            help="Archive (--archive) or unarchive (--no-archive) the page.",
         ),
-    ] = False,
+    ] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -182,16 +176,13 @@ async def update(
         kwargs["properties"] = {"title": {"title": [{"text": {"content": title}}]}}
     if icon is not None:
         kwargs["icon"] = {"type": "emoji", "emoji": icon}
-    if archive:
-        kwargs["archived"] = True
-
-    import asyncio
+    if archive is not None:
+        kwargs["archived"] = archive
 
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        coro = client.pages.update(**kwargs)
-        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        result = await await_with_timeout(client.pages.update(**kwargs), timeout)
     typer.echo(format_json(result))
 
 
@@ -225,16 +216,13 @@ async def move(
     pid = extract_id(page_id)
     new_parent_id = extract_id(to)
 
-    import asyncio
-
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        coro = client.pages.update(
+        result = await await_with_timeout(client.pages.update(
             page_id=pid,
             parent={"page_id": new_parent_id},
-        )
-        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        ), timeout)
     typer.echo(format_json(result))
 
 
@@ -261,18 +249,14 @@ async def duplicate(
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
 
-    import asyncio
-
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        coro = client.pages.retrieve(pid)
-        original = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
-        coro = client.pages.create(
+        original = await await_with_timeout(client.pages.retrieve(pid), timeout)
+        result = await await_with_timeout(client.pages.create(
             parent=original["parent"],
             properties=original["properties"],
             icon=original.get("icon"),
             cover=original.get("cover"),
-        )
-        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        ), timeout)
     typer.echo(format_json(result))
