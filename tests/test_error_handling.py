@@ -72,3 +72,33 @@ class TestGenericApiError:
         assert result.exit_code == 1
         error = json.loads(result.output)
         assert error["error_type"] == "internal_server_error"
+
+
+class TestUnexpectedError:
+    def test_connection_error_returns_json(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.search.side_effect = ConnectionError("Connection refused")
+
+        result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "secret"})
+
+        assert result.exit_code == 1
+        error = json.loads(result.output)
+        assert error["error_type"] == "unexpected"
+        assert "Connection refused" in error["message"]
+
+
+class TestBadJsonInput:
+    def test_malformed_filter_returns_json_error(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["db", "query", "aabbccdd-1122-3344-5566-778899001122", "--filter", "{bad json}"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 1
+        error = json.loads(result.output)
+        assert error["error_type"] == "unexpected"
+        assert "JSONDecodeError" in error.get("suggestion", "")

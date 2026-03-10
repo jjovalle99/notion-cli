@@ -100,6 +100,19 @@ class TestPageUpdate:
 
         assert result.exit_code == 0
 
+    def test_unarchive(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.update.return_value = {**MOCK_PAGE, "archived": False}
+
+        result = runner.invoke(
+            app,
+            ["page", "update", PAGE_ID, "--no-archive"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.pages.update.call_args.kwargs
+        assert call_kwargs["archived"] is False
+
 
 class TestPageMove:
     def test_move_page(self, runner: CliRunner, mock_client: AsyncMock) -> None:
