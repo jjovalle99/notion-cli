@@ -140,6 +140,20 @@ class TestPageUpdate:
         call_kwargs = mock_client.pages.update.call_args.kwargs
         assert call_kwargs["properties"]["Status"] == {"select": {"name": "Done"}}
 
+    def test_update_title_and_properties_title_conflict(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        props_json = '{"title": {"title": [{"text": {"content": "from props"}}]}}'
+
+        result = runner.invoke(
+            app,
+            ["page", "update", PAGE_ID, "--title", "from flag", "--properties", props_json],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        assert "conflict" in result.output.lower()
+
     def test_update_icon(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.pages.update.return_value = MOCK_PAGE
 
