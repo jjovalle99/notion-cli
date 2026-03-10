@@ -113,7 +113,7 @@ async def create(
     }
 
     if content is not None:
-        kwargs["markdown"] = read_content(content)
+        kwargs["content"] = read_content(content)
 
     if icon is not None:
         kwargs["icon"] = {"type": "emoji", "emoji": icon}
@@ -247,7 +247,7 @@ async def move(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(
-            client.pages.update(
+            client.pages.move(
                 page_id=pid,
                 parent={"page_id": new_parent_id},
             ),

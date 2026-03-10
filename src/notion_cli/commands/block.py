@@ -88,14 +88,16 @@ async def append(
             help="Page or block ID/URL to append content to.",
         ),
     ],
-    content: Annotated[
+    children: Annotated[
         str,
         typer.Option(
-            "--content",
+            "--children",
             "-c",
             help=(
-                "Content as Notion-flavored Markdown to append. "
-                "Use '@path/to/file.md' to read from a file, or '-' for stdin."
+                "Block objects as a JSON array to append. "
+                "Use '@path/to/file.json' to read from a file, or '-' for stdin. "
+                'Example: \'[{"type": "paragraph", "paragraph": '
+                '{"rich_text": [{"text": {"content": "Hello"}}]}}]\''
             ),
         ),
     ],
@@ -104,20 +106,24 @@ async def append(
 ) -> None:
     """Append content blocks to a page or block.
 
-    Content is provided as Notion-flavored Markdown. The new blocks are
-    added after existing children.
+    Content is provided as a JSON array of Notion block objects. The new
+    blocks are added after existing children.
 
     Examples:
-        notion block append abc123 --content "# New section\\nSome text"
-        notion block append abc123 -c @appendix.md
-        echo "- item 1\\n- item 2" | notion block append abc123 -c -
+        notion block append abc123 --children '[{"type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": "Hello"}}]}}]'
+        notion block append abc123 -c @blocks.json
     """
+    import json as json_mod
+
     resolved_token = resolve_token(token=token)
     pid = extract_id(parent_id)
-    md = read_content(content)
+    raw = read_content(children)
+    block_list = json_mod.loads(raw)
 
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.blocks.children.append(pid, markdown=md), timeout)
+        result = await await_with_timeout(
+            client.blocks.children.append(pid, children=block_list), timeout
+        )
     typer.echo(format_json(result))
