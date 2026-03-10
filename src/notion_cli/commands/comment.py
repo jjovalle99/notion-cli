@@ -1,7 +1,6 @@
 from typing import Annotated
 
 import typer
-from notion_client import AsyncClient
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
@@ -56,6 +55,8 @@ async def add(
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
 
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.comments.create(
             parent={"page_id": pid},
@@ -85,6 +86,17 @@ async def list_comments(
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
 
+    all_results: list[object] = []
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.comments.list(block_id=pid)
+        all_results.extend(result["results"])
+
+        while result.get("has_more"):
+            result = await client.comments.list(block_id=pid, start_cursor=result["next_cursor"])
+            all_results.extend(result["results"])
+
+    result["results"] = all_results
+    result["has_more"] = False
     typer.echo(format_json(result))

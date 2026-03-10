@@ -1,7 +1,6 @@
 from typing import Annotated
 
 import typer
-from notion_client import AsyncClient
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
@@ -49,6 +48,8 @@ async def get(
     """
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.pages.retrieve(pid)
     typer.echo(format_json(result))
@@ -121,6 +122,8 @@ async def create(
     if icon is not None:
         kwargs["icon"] = {"type": "emoji", "emoji": icon}
 
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.pages.create(**kwargs)
     typer.echo(format_json(result))
@@ -180,6 +183,8 @@ async def update(
     if archive:
         kwargs["archived"] = True
 
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.pages.update(**kwargs)
     typer.echo(format_json(result))
@@ -214,6 +219,8 @@ async def move(
     pid = extract_id(page_id)
     new_parent_id = extract_id(to)
 
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.pages.update(
             page_id=pid,
@@ -243,6 +250,8 @@ async def duplicate(
     """
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
+
+    from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         original = await client.pages.retrieve(pid)

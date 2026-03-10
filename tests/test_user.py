@@ -27,7 +27,7 @@ class TestUserList:
             "has_more": False,
         }
 
-        with patch("notion_cli.commands.user.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(app, ["user", "list"], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 0
@@ -40,7 +40,7 @@ class TestUserGet:
         mock_client = _make_client(AsyncMock())
         mock_client.users.retrieve.return_value = MOCK_USER
 
-        with patch("notion_cli.commands.user.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(app, ["user", "get", USER_ID], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 0
@@ -53,7 +53,7 @@ class TestUserMe:
         mock_client = _make_client(AsyncMock())
         mock_client.users.me.return_value = MOCK_BOT
 
-        with patch("notion_cli.commands.user.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(app, ["user", "me"], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 0

@@ -32,7 +32,7 @@ class TestCommentAdd:
         mock_client = _make_client(AsyncMock())
         mock_client.comments.create.return_value = MOCK_COMMENT
 
-        with patch("notion_cli.commands.comment.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["comment", "add", PAGE_ID, "--body", "Great work!"],
@@ -49,7 +49,7 @@ class TestCommentList:
         mock_client = _make_client(AsyncMock())
         mock_client.comments.list.return_value = MOCK_COMMENTS_LIST
 
-        with patch("notion_cli.commands.comment.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["comment", "list", PAGE_ID],
