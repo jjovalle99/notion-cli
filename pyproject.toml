@@ -19,6 +19,7 @@ notion = "notion_cli.cli:app"
 dev = [
     "pytest>=8",
     "ruff>=0.9",
+    "pre-commit>=4",
 ]
 
 [tool.ruff]
