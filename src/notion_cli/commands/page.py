@@ -6,7 +6,7 @@ import typer
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import timeout_option, token_option
-from notion_cli.output import format_json
+from notion_cli.output import ExitCode, format_json
 from notion_cli.parsing import extract_id, read_content
 
 page_app = typer.Typer(
@@ -195,7 +195,7 @@ async def update(
                 "Error: --title conflicts with 'title' key in --properties. Use one or the other.",
                 err=True,
             )
-            raise SystemExit(2)
+            raise SystemExit(ExitCode.BAD_ARGS)
         props.update(parsed_props)
     if title is not None:
         props["title"] = {"title": [{"text": {"content": title}}]}
@@ -283,13 +283,13 @@ async def duplicate(
 
     async with AsyncClient(auth=resolved_token) as client:
         original = await await_with_timeout(client.pages.retrieve(pid), timeout)
-        result = await await_with_timeout(
-            client.pages.create(
-                parent=original["parent"],
-                properties=original["properties"],
-                icon=original.get("icon"),
-                cover=original.get("cover"),
-            ),
-            timeout,
-        )
+        create_kwargs: dict[str, object] = {
+            "parent": original["parent"],
+            "properties": original["properties"],
+        }
+        if original.get("icon") is not None:
+            create_kwargs["icon"] = original["icon"]
+        if original.get("cover") is not None:
+            create_kwargs["cover"] = original["cover"]
+        result = await await_with_timeout(client.pages.create(**create_kwargs), timeout)
     typer.echo(format_json(result))
