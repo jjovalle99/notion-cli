@@ -3,20 +3,29 @@
 from typing import Any
 
 _HEADING_PREFIX = {"heading_1": "# ", "heading_2": "## ", "heading_3": "### "}
-
 _HEADING_TYPES = frozenset(_HEADING_PREFIX)
-_LIST_TYPES = frozenset({"bulleted_list_item", "numbered_list_item", "to_do"})
 
 
-def _rich_text_to_md(rich_text: list[dict[str, Any]]) -> str:
+def rich_text_to_md(rich_text: list[dict[str, Any]]) -> str:
+    """Convert a Notion rich_text array to a Markdown string."""
     parts: list[str] = []
     for span in rich_text:
-        text = span.get("text", {}).get("content", "")
-        annotations = span.get("annotations", {})
-        link = span.get("text", {}).get("link")
+        span_type = span.get("type", "text")
 
-        if link:
-            text = f"[{text}]({link['url']})"
+        if span_type == "mention":
+            mention = span.get("mention", {})
+            mention_type = mention.get("type", "")
+            plain = span.get("plain_text", "")
+            text = f"@{plain}" if plain else f"[{mention_type} mention]"
+        elif span_type == "equation":
+            text = f"${span.get('equation', {}).get('expression', '')}$"
+        else:
+            text = span.get("text", {}).get("content", "")
+            link = span.get("text", {}).get("link")
+            if link:
+                text = f"[{text}]({link['url']})"
+
+        annotations = span.get("annotations", {})
         if annotations.get("code"):
             text = f"`{text}`"
         if annotations.get("bold"):
@@ -34,7 +43,7 @@ def _block_to_md(block: dict[str, Any], number: int) -> str:
     block_type = block.get("type", "")
     data = block.get(block_type, {})
     rich_text = data.get("rich_text", [])
-    text = _rich_text_to_md(rich_text)
+    text = rich_text_to_md(rich_text)
 
     if block_type in _HEADING_TYPES:
         return _HEADING_PREFIX[block_type] + text
@@ -64,12 +73,12 @@ def _block_to_md(block: dict[str, Any], number: int) -> str:
 
     if block_type == "image":
         url = data.get("file", data.get("external", {})).get("url", "")
-        caption = _rich_text_to_md(data.get("caption", []))
+        caption = rich_text_to_md(data.get("caption", []))
         return f"![{caption}]({url})"
 
     if block_type == "bookmark":
         url = data.get("url", "")
-        caption = _rich_text_to_md(data.get("caption", []))
+        caption = rich_text_to_md(data.get("caption", []))
         return f"[{caption or url}]({url})"
 
     if block_type == "callout":
@@ -78,6 +87,17 @@ def _block_to_md(block: dict[str, Any], number: int) -> str:
 
     if block_type == "equation":
         return f"$${data.get('expression', '')}$$"
+
+    if block_type == "child_page":
+        title = data.get("title", "")
+        return f"[{title}](child_page)" if title else ""
+
+    if block_type == "child_database":
+        title = data.get("title", "")
+        return f"[{title}](child_database)" if title else ""
+
+    if block_type == "table_of_contents":
+        return "[Table of Contents]"
 
     # Unknown block type: render as plain text if possible
     return text
@@ -92,13 +112,11 @@ def blocks_to_markdown(blocks: list[dict[str, Any]]) -> str:
     for block in blocks:
         block_type = block.get("type", "")
 
-        # Reset numbered list counter when leaving a numbered list
         if block_type == "numbered_list_item":
             numbered_counter += 1
         else:
             numbered_counter = 0
 
-        # Add blank line before headings and after headings
         if block_type in _HEADING_TYPES and lines:
             lines.append("")
         if prev_type in _HEADING_TYPES and block_type not in _HEADING_TYPES:
@@ -109,7 +127,3 @@ def blocks_to_markdown(blocks: list[dict[str, Any]]) -> str:
         prev_type = block_type
 
     return "\n".join(lines) + "\n" if lines else ""
-
-
-# Expose _rich_text_to_md for testing
-blocks_to_markdown._rich_text_to_md = _rich_text_to_md  # type: ignore[attr-defined]

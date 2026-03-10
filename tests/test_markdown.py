@@ -1,24 +1,24 @@
-from notion_cli.markdown import blocks_to_markdown
+from notion_cli.markdown import blocks_to_markdown, rich_text_to_md
 
 
 class TestRichText:
     def test_plain_text(self) -> None:
         rich_text = [{"type": "text", "text": {"content": "Hello world"}, "annotations": {}}]
-        assert blocks_to_markdown._rich_text_to_md(rich_text) == "Hello world"
+        assert rich_text_to_md(rich_text) == "Hello world"
 
     def test_bold(self) -> None:
         rich_text = [{"type": "text", "text": {"content": "bold"}, "annotations": {"bold": True}}]
-        assert blocks_to_markdown._rich_text_to_md(rich_text) == "**bold**"
+        assert rich_text_to_md(rich_text) == "**bold**"
 
     def test_italic(self) -> None:
         rich_text = [
             {"type": "text", "text": {"content": "italic"}, "annotations": {"italic": True}}
         ]
-        assert blocks_to_markdown._rich_text_to_md(rich_text) == "*italic*"
+        assert rich_text_to_md(rich_text) == "*italic*"
 
     def test_code_inline(self) -> None:
         rich_text = [{"type": "text", "text": {"content": "code"}, "annotations": {"code": True}}]
-        assert blocks_to_markdown._rich_text_to_md(rich_text) == "`code`"
+        assert rich_text_to_md(rich_text) == "`code`"
 
     def test_strikethrough(self) -> None:
         rich_text = [
@@ -28,7 +28,7 @@ class TestRichText:
                 "annotations": {"strikethrough": True},
             }
         ]
-        assert blocks_to_markdown._rich_text_to_md(rich_text) == "~~removed~~"
+        assert rich_text_to_md(rich_text) == "~~removed~~"
 
     def test_link(self) -> None:
         rich_text = [
@@ -38,7 +38,7 @@ class TestRichText:
                 "annotations": {},
             }
         ]
-        assert blocks_to_markdown._rich_text_to_md(rich_text) == "[click](https://example.com)"
+        assert rich_text_to_md(rich_text) == "[click](https://example.com)"
 
     def test_mixed(self) -> None:
         rich_text = [
@@ -46,7 +46,22 @@ class TestRichText:
             {"type": "text", "text": {"content": "bold"}, "annotations": {"bold": True}},
             {"type": "text", "text": {"content": " end"}, "annotations": {}},
         ]
-        assert blocks_to_markdown._rich_text_to_md(rich_text) == "normal **bold** end"
+        assert rich_text_to_md(rich_text) == "normal **bold** end"
+
+    def test_mention(self) -> None:
+        rich_text = [
+            {
+                "type": "mention",
+                "mention": {"type": "user", "user": {"id": "abc"}},
+                "plain_text": "John",
+                "annotations": {},
+            }
+        ]
+        assert rich_text_to_md(rich_text) == "@John"
+
+    def test_equation_span(self) -> None:
+        rich_text = [{"type": "equation", "equation": {"expression": "E=mc^2"}, "annotations": {}}]
+        assert rich_text_to_md(rich_text) == "$E=mc^2$"
 
 
 class TestBlocks:

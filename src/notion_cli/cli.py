@@ -43,18 +43,7 @@ from notion_cli.commands.search import search  # noqa: E402
 from notion_cli.commands.team import team_app  # noqa: E402
 from notion_cli.commands.user import user_app  # noqa: E402
 
-app.command(
-    name="search",
-    help=(
-        "Search the Notion workspace by title.\n\n"
-        "Returns pages and databases matching the query, ordered by relevance. "
-        "Only content shared with the integration is searchable.\n\n"
-        "Examples:\n\n"
-        "  notion search 'meeting notes'\n\n"
-        "  notion search 'Q1 roadmap' --type page\n\n"
-        "  notion search 'projects' --type database"
-    ),
-)(search)
+app.command(name="search")(search)
 app.add_typer(page_app)
 app.add_typer(db_app)
 app.add_typer(block_app)

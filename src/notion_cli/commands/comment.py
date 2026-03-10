@@ -31,7 +31,7 @@ async def add(
         typer.Option(
             "--body",
             "-b",
-            help="Comment text. Plain text or rich text content.",
+            help="Comment text as plain text.",
         ),
     ],
     token: Annotated[str | None, token_option()] = None,
