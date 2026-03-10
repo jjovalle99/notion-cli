@@ -10,8 +10,8 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: uv run pytest --tb=short -q
+        entry: uv run pytest -x --tb=short -q
         language: system
         pass_filenames: false
-        always_run: true
-        stages: [pre-commit]
+        types: [python]
+        stages: [pre-push]

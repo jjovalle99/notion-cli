@@ -60,7 +60,7 @@ notion block get <page-id> --markdown
 
 Create a page with content:
 ```bash
-notion page create --parent <parent-id> --title "New Page" --content "# Hello\nWorld"
+notion page create --parent <parent-id> --title "New Page" --content $'# Hello\nWorld'
 notion page create -p <parent-id> -t "Notes" -c @notes.md
 ```
 

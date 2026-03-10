@@ -1,3 +1,4 @@
+import json
 from typing import Annotated
 
 import typer
@@ -180,7 +181,6 @@ async def update(
         notion page update abc123 --archive
         notion page update abc123 --properties '{"Status": {"select": {"name": "Done"}}}'
     """
-    import json
 
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)

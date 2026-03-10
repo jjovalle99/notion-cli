@@ -15,6 +15,10 @@ _ERROR_CODE_MAP: dict[str, ExitCode] = {
 async def await_with_timeout[T](coro: Coroutine[object, object, T], timeout: float | None) -> T:
     """Await a coroutine with an optional timeout."""
     if timeout is not None:
+        if timeout <= 0:
+            coro.close()
+            msg = f"Timeout must be positive, got {timeout}"
+            raise ValueError(msg)
         return await asyncio.wait_for(coro, timeout=timeout)
     return await coro
 
