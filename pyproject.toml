@@ -1,0 +1,38 @@
+[project]
+name = "notion-cli"
+version = "0.1.0"
+description = "Agent-friendly CLI for the Notion API. Structured JSON output, async, full MCP parity."
+readme = "README.md"
+authors = [
+    { name = "jjovalle99", email = "juan.ovalle@mistral.ai" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.15",
+    "notion-client>=3.0",
+    "rich>=13",
+]
+
+[project.scripts]
+notion = "notion_cli.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.9",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "ANN"]
+
+[build-system]
+requires = ["uv_build>=0.10.3,<0.11.0"]
+build-backend = "uv_build"
