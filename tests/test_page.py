@@ -113,6 +113,20 @@ class TestPageUpdate:
         call_kwargs = mock_client.pages.update.call_args.kwargs
         assert call_kwargs["archived"] is False
 
+    def test_update_properties_json(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.update.return_value = MOCK_PAGE
+        props_json = '{"Status": {"select": {"name": "Done"}}}'
+
+        result = runner.invoke(
+            app,
+            ["page", "update", PAGE_ID, "--properties", props_json],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.pages.update.call_args.kwargs
+        assert call_kwargs["properties"]["Status"] == {"select": {"name": "Done"}}
+
 
 class TestPageMove:
     def test_move_page(self, runner: CliRunner, mock_client: AsyncMock) -> None:
