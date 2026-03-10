@@ -37,7 +37,7 @@ class TestDbGet:
         mock_client = _make_client(AsyncMock())
         mock_client.databases.retrieve.return_value = MOCK_DB
 
-        with patch("notion_cli.commands.db.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(app, ["db", "get", DB_ID], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 0
@@ -50,7 +50,7 @@ class TestDbQuery:
         mock_client = _make_client(AsyncMock())
         mock_client.databases.query.return_value = MOCK_QUERY_RESULT
 
-        with patch("notion_cli.commands.db.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(app, ["db", "query", DB_ID], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 0
@@ -62,7 +62,7 @@ class TestDbQuery:
         mock_client.databases.query.return_value = MOCK_QUERY_RESULT
 
         filter_json = '{"property": "Status", "select": {"equals": "Done"}}'
-        with patch("notion_cli.commands.db.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["db", "query", DB_ID, "--filter", filter_json],
@@ -78,7 +78,7 @@ class TestDbQuery:
         mock_client.databases.query.return_value = MOCK_QUERY_RESULT
 
         sort_json = '[{"property": "Created", "direction": "descending"}]'
-        with patch("notion_cli.commands.db.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["db", "query", DB_ID, "--sort", sort_json],
@@ -89,13 +89,38 @@ class TestDbQuery:
         call_kwargs = mock_client.databases.query.call_args.kwargs
         assert call_kwargs["sorts"] == json.loads(sort_json)
 
+    def test_query_paginates_automatically(self) -> None:
+        mock_client = _make_client(AsyncMock())
+        page1 = {
+            "results": [{"id": "row-1"}],
+            "has_more": True,
+            "next_cursor": "cursor-abc",
+        }
+        page2 = {
+            "results": [{"id": "row-2"}],
+            "has_more": False,
+        }
+        mock_client.databases.query.side_effect = [page1, page2]
+
+        with patch("notion_client.AsyncClient", return_value=mock_client):
+            result = runner.invoke(app, ["db", "query", DB_ID], env={"NOTION_API_KEY": "secret"})
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["results"]) == 2
+        assert data["results"][0]["id"] == "row-1"
+        assert data["results"][1]["id"] == "row-2"
+        assert mock_client.databases.query.call_count == 2
+        second_call_kwargs = mock_client.databases.query.call_args_list[1].kwargs
+        assert second_call_kwargs["start_cursor"] == "cursor-abc"
+
 
 class TestDbCreate:
     def test_create_database(self) -> None:
         mock_client = _make_client(AsyncMock())
         mock_client.databases.create.return_value = MOCK_DB
 
-        with patch("notion_cli.commands.db.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["db", "create", "--parent", PARENT_ID, "--title", "New DB"],
@@ -112,7 +137,7 @@ class TestDbUpdate:
         mock_client = _make_client(AsyncMock())
         mock_client.databases.update.return_value = MOCK_DB
 
-        with patch("notion_cli.commands.db.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["db", "update", DB_ID, "--title", "Renamed DB"],

@@ -1,7 +1,6 @@
 from typing import Annotated
 
 import typer
-from notion_client import AsyncClient
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
@@ -40,6 +39,8 @@ async def list_teams(
         notion team list
     """
     resolved_token = resolve_token(token=token)
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.request(
             path="teamspaces",

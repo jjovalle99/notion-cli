@@ -34,7 +34,7 @@ class TestBlockGet:
         mock_client = _make_client(AsyncMock())
         mock_client.blocks.children.list.return_value = MOCK_CHILDREN
 
-        with patch("notion_cli.commands.block.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app, ["block", "get", BLOCK_ID], env={"NOTION_API_KEY": "secret"}
             )
@@ -43,13 +43,29 @@ class TestBlockGet:
         data = json.loads(result.stdout)
         assert len(data["results"]) == 2
 
+    def test_get_paginates_automatically(self) -> None:
+        mock_client = _make_client(AsyncMock())
+        page1 = {"results": [{"id": "child-1"}], "has_more": True, "next_cursor": "cur1"}
+        page2 = {"results": [{"id": "child-2"}], "has_more": False}
+        mock_client.blocks.children.list.side_effect = [page1, page2]
+
+        with patch("notion_client.AsyncClient", return_value=mock_client):
+            result = runner.invoke(
+                app, ["block", "get", BLOCK_ID], env={"NOTION_API_KEY": "secret"}
+            )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["results"]) == 2
+        assert mock_client.blocks.children.list.call_count == 2
+
 
 class TestBlockAppend:
     def test_append_markdown(self) -> None:
         mock_client = _make_client(AsyncMock())
         mock_client.blocks.children.append.return_value = MOCK_APPEND
 
-        with patch("notion_cli.commands.block.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["block", "append", PARENT_ID, "--content", "# New heading\nSome text"],

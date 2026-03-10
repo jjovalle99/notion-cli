@@ -30,7 +30,7 @@ class TestPageGet:
         mock_client = _make_client(AsyncMock())
         mock_client.pages.retrieve.return_value = MOCK_PAGE
 
-        with patch("notion_cli.commands.page.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(app, ["page", "get", PAGE_ID], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 0
@@ -41,7 +41,7 @@ class TestPageGet:
         mock_client = _make_client(AsyncMock())
         mock_client.pages.retrieve.return_value = MOCK_PAGE
 
-        with patch("notion_cli.commands.page.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["page", "get", "https://www.notion.so/My-Page-abc123def456abc123def456abc123de"],
@@ -57,7 +57,7 @@ class TestPageCreate:
         mock_client = _make_client(AsyncMock())
         mock_client.pages.create.return_value = MOCK_PAGE
 
-        with patch("notion_cli.commands.page.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["page", "create", "--parent", PARENT_ID, "--title", "New Page"],
@@ -72,7 +72,7 @@ class TestPageCreate:
         mock_client = _make_client(AsyncMock())
         mock_client.pages.create.return_value = MOCK_PAGE
 
-        with patch("notion_cli.commands.page.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -98,7 +98,7 @@ class TestPageUpdate:
         mock_client = _make_client(AsyncMock())
         mock_client.pages.update.return_value = MOCK_PAGE
 
-        with patch("notion_cli.commands.page.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["page", "update", PAGE_ID, "--title", "Updated Title"],
@@ -111,7 +111,7 @@ class TestPageUpdate:
         mock_client = _make_client(AsyncMock())
         mock_client.pages.update.return_value = {**MOCK_PAGE, "archived": True}
 
-        with patch("notion_cli.commands.page.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["page", "update", PAGE_ID, "--archive"],
@@ -126,7 +126,7 @@ class TestPageMove:
         mock_client = _make_client(AsyncMock())
         mock_client.pages.update.return_value = MOCK_PAGE
 
-        with patch("notion_cli.commands.page.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(
                 app,
                 ["page", "move", PAGE_ID, "--to", NEW_PARENT_ID],

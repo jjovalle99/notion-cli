@@ -2,7 +2,6 @@ import json as json_mod
 from typing import Annotated
 
 import typer
-from notion_client import AsyncClient
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
@@ -50,6 +49,8 @@ async def get(
     """
     resolved_token = resolve_token(token=token)
     did = extract_id(db_id)
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.databases.retrieve(did)
     typer.echo(format_json(result))
@@ -118,8 +119,23 @@ async def query(
     if limit is not None:
         kwargs["page_size"] = min(limit, 100)
 
+    all_results: list[object] = []
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.databases.query(**kwargs)
+        all_results.extend(result["results"])
+
+        while result.get("has_more") and (limit is None or len(all_results) < limit):
+            kwargs["start_cursor"] = result["next_cursor"]
+            result = await client.databases.query(**kwargs)
+            all_results.extend(result["results"])
+
+    if limit is not None:
+        all_results = all_results[:limit]
+
+    result["results"] = all_results
+    result["has_more"] = False
     typer.echo(format_json(result))
 
 
@@ -176,6 +192,8 @@ async def create(
         parsed_props = json_mod.loads(properties)
         kwargs["properties"] = {**kwargs["properties"], **parsed_props}  # type: ignore[arg-type]
 
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.databases.create(**kwargs)
     typer.echo(format_json(result))
@@ -221,6 +239,8 @@ async def update(
         kwargs["title"] = [{"text": {"content": title}}]
     if properties is not None:
         kwargs["properties"] = json_mod.loads(properties)
+
+    from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.databases.update(**kwargs)

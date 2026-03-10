@@ -26,7 +26,7 @@ class TestTeamList:
         mock_client = _make_client(AsyncMock())
         mock_client.request.return_value = MOCK_TEAMS
 
-        with patch("notion_cli.commands.team.AsyncClient", return_value=mock_client):
+        with patch("notion_client.AsyncClient", return_value=mock_client):
             result = runner.invoke(app, ["team", "list"], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 0

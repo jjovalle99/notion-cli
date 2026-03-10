@@ -1,7 +1,6 @@
 from typing import Annotated
 
 import typer
-from notion_client import AsyncClient
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
@@ -40,6 +39,8 @@ async def list_users(
         notion user list
     """
     resolved_token = resolve_token(token=token)
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.users.list()
     typer.echo(format_json(result))
@@ -63,6 +64,8 @@ async def get(
     """
     resolved_token = resolve_token(token=token)
     uid = extract_id(user_id)
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.users.retrieve(uid)
     typer.echo(format_json(result))
@@ -82,6 +85,8 @@ async def me(
         notion user me
     """
     resolved_token = resolve_token(token=token)
+    from notion_client import AsyncClient
+
     async with AsyncClient(auth=resolved_token) as client:
         result = await client.users.me()
     typer.echo(format_json(result))
