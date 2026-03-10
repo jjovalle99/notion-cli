@@ -4,6 +4,7 @@ import typer
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
+from notion_cli.options import token_option
 from notion_cli.output import format_json
 from notion_cli.parsing import extract_id
 
@@ -18,18 +19,10 @@ user_app = typer.Typer(
 )
 
 
-def _token_option() -> typer.Option:
-    return typer.Option(
-        "--token",
-        envvar="NOTION_API_KEY",
-        help="Notion API token. Defaults to NOTION_API_KEY env var.",
-    )
-
-
 @user_app.command(name="list")
 @run_async
 async def list_users(
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """List all users in the Notion workspace.
 
@@ -53,7 +46,7 @@ async def get(
         str,
         typer.Argument(help="User ID (UUID format)."),
     ],
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Retrieve a specific Notion user by ID.
 
@@ -74,7 +67,7 @@ async def get(
 @user_app.command()
 @run_async
 async def me(
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Get the current bot user and workspace info.
 

@@ -4,6 +4,7 @@ import typer
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
+from notion_cli.options import token_option
 from notion_cli.output import format_json
 from notion_cli.parsing import extract_id, read_content
 
@@ -17,14 +18,6 @@ page_app = typer.Typer(
 )
 
 
-def _token_option() -> typer.Option:
-    return typer.Option(
-        "--token",
-        envvar="NOTION_API_KEY",
-        help="Notion API token. Defaults to NOTION_API_KEY env var.",
-    )
-
-
 @page_app.command()
 @run_async
 async def get(
@@ -34,7 +27,7 @@ async def get(
             help="Page ID or Notion URL. Example: 'abc123' or 'https://notion.so/My-Page-abc123'.",
         ),
     ],
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Retrieve a single Notion page by ID or URL.
 
@@ -96,7 +89,7 @@ async def create(
             help="Page icon as an emoji. Example: '📝'.",
         ),
     ] = None,
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Create a new Notion page under a parent page or database.
 
@@ -160,7 +153,7 @@ async def update(
             help="Archive or unarchive the page.",
         ),
     ] = False,
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Update properties of an existing Notion page.
 
@@ -204,7 +197,7 @@ async def move(
             help="New parent page ID or URL. Example: 'abc123' or a full Notion URL.",
         ),
     ],
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Move a Notion page to a different parent.
 
@@ -236,7 +229,7 @@ async def duplicate(
         str,
         typer.Argument(help="Page ID or Notion URL to duplicate."),
     ],
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Duplicate a Notion page.
 

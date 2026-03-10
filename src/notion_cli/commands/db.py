@@ -1,20 +1,13 @@
-import json as json_mod
+import json as json
 from typing import Annotated
 
 import typer
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
+from notion_cli.options import token_option
 from notion_cli.output import format_json
 from notion_cli.parsing import extract_id
-
-
-def _token_option() -> typer.Option:
-    return typer.Option(
-        "--token",
-        envvar="NOTION_API_KEY",
-        help="Notion API token. Defaults to NOTION_API_KEY env var.",
-    )
 
 
 db_app = typer.Typer(
@@ -36,7 +29,7 @@ async def get(
             help="Database ID or Notion URL. Example: 'abc123' or a full Notion database URL.",
         ),
     ],
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Retrieve a Notion database schema by ID or URL.
 
@@ -95,7 +88,7 @@ async def query(
             help="Maximum number of results to return. Omit to return all.",
         ),
     ] = None,
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Query pages in a Notion database with optional filter and sort.
 
@@ -113,9 +106,9 @@ async def query(
 
     kwargs: dict[str, object] = {"database_id": did}
     if filter is not None:
-        kwargs["filter"] = json_mod.loads(filter)
+        kwargs["filter"] = json.loads(filter)
     if sort is not None:
-        kwargs["sorts"] = json_mod.loads(sort)
+        kwargs["sorts"] = json.loads(sort)
     if limit is not None:
         kwargs["page_size"] = min(limit, 100)
 
@@ -168,7 +161,7 @@ async def create(
             ),
         ),
     ] = None,
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Create a new Notion database under a parent page.
 
@@ -189,7 +182,7 @@ async def create(
     }
 
     if properties is not None:
-        parsed_props = json_mod.loads(properties)
+        parsed_props = json.loads(properties)
         kwargs["properties"] = {**kwargs["properties"], **parsed_props}  # type: ignore[arg-type]
 
     from notion_client import AsyncClient
@@ -221,7 +214,7 @@ async def update(
             help="Updated properties schema as a JSON string.",
         ),
     ] = None,
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Update a Notion database's title or properties schema.
 
@@ -238,7 +231,7 @@ async def update(
     if title is not None:
         kwargs["title"] = [{"text": {"content": title}}]
     if properties is not None:
-        kwargs["properties"] = json_mod.loads(properties)
+        kwargs["properties"] = json.loads(properties)
 
     from notion_client import AsyncClient
 

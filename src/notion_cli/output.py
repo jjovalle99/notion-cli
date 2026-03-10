@@ -11,8 +11,9 @@ class ExitCode(enum.IntEnum):
     RATE_LIMITED = 5
 
 
-def format_json(data: object) -> str:
-    return json.dumps(data, indent=2, default=str)
+def format_json(data: object, *, pretty: bool = False) -> str:
+    indent = 2 if pretty else None
+    return json.dumps(data, indent=indent, default=str)
 
 
 def format_error(error_type: str, message: str, *, suggestion: str | None = None) -> str:

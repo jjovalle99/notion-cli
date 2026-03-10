@@ -15,8 +15,13 @@ def test_format_json_list() -> None:
     assert parsed == [{"id": "1"}, {"id": "2"}]
 
 
-def test_format_json_pretty_by_default() -> None:
+def test_format_json_compact_by_default() -> None:
     result = format_json({"a": 1})
+    assert "\n" not in result
+
+
+def test_format_json_pretty_when_requested() -> None:
+    result = format_json({"a": 1}, pretty=True)
     assert "\n" in result
 
 
