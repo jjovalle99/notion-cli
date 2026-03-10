@@ -175,7 +175,7 @@ async def update(
     Modify the title, icon, archive status, or any page property. For database
     rows, use --properties to set fields like Status, Date, or custom properties.
     Only specified fields are changed; omitted fields remain untouched.
-    If both --title and --properties include a "title" key, --properties wins.
+    Using --title together with a "title" key in --properties is an error.
 
     Examples:
         notion page update abc123 --title "Renamed Page"
@@ -188,10 +188,17 @@ async def update(
 
     kwargs: dict[str, object] = {"page_id": pid}
     props: dict[str, object] = {}
+    if properties is not None:
+        parsed_props = json.loads(properties)
+        if title is not None and "title" in parsed_props:
+            typer.echo(
+                "Error: --title conflicts with 'title' key in --properties. Use one or the other.",
+                err=True,
+            )
+            raise SystemExit(2)
+        props.update(parsed_props)
     if title is not None:
         props["title"] = {"title": [{"text": {"content": title}}]}
-    if properties is not None:
-        props.update(json.loads(properties))
     if props:
         kwargs["properties"] = props
     if icon is not None:
