@@ -113,12 +113,12 @@ async def append(
         notion block append abc123 --children '[{"type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": "Hello"}}]}}]'
         notion block append abc123 -c @blocks.json
     """
-    import json as json_mod
+    import json as json
 
     resolved_token = resolve_token(token=token)
     pid = extract_id(parent_id)
     raw = read_content(children)
-    block_list = json_mod.loads(raw)
+    block_list = json.loads(raw)
 
     from notion_client import AsyncClient
 
