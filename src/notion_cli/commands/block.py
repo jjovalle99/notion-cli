@@ -32,22 +32,31 @@ async def get(
             ),
         ),
     ],
+    markdown: Annotated[
+        bool,
+        typer.Option(
+            "--markdown",
+            "-m",
+            help="Output content as Markdown instead of raw JSON blocks.",
+        ),
+    ] = False,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """List child blocks of a page or block.
 
-    Returns the first level of children. If a child block has
-    has_children=true, call this command again with that block's ID
-    to recurse deeper.
+    Returns raw JSON blocks by default. Use --markdown to convert the output
+    to readable Markdown text. If a child block has has_children=true, call
+    this command again with that block's ID to recurse deeper.
 
     Examples:
-        notion block get aabbccdd11223344556677889900aabb
-        notion block get https://notion.so/My-Page-abc123
+        notion block get abc123
+        notion block get abc123 --markdown
+        notion block get https://notion.so/My-Page-abc123 -m
     """
     resolved_token = resolve_token(token=token)
     bid = extract_id(block_id)
-    all_results: list[object] = []
+    all_results: list[dict[str, object]] = []
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
@@ -60,9 +69,14 @@ async def get(
             )
             all_results.extend(result["results"])
 
-    result["results"] = all_results
-    result["has_more"] = False
-    typer.echo(format_json(result))
+    if markdown:
+        from notion_cli.markdown import blocks_to_markdown
+
+        typer.echo(blocks_to_markdown(all_results), nl=False)
+    else:
+        result["results"] = all_results
+        result["has_more"] = False
+        typer.echo(format_json(result))
 
 
 @block_app.command()
