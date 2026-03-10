@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,7 +11,9 @@ def runner() -> CliRunner:
 
 
 @pytest.fixture
-def mock_client() -> AsyncIterator[AsyncMock]:
+def mock_client() -> Iterator[AsyncMock]:
     client = AsyncMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
     with patch("notion_client.AsyncClient", return_value=client):
         yield client

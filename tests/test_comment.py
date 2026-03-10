@@ -1,11 +1,9 @@
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 from typer.testing import CliRunner
 
 from notion_cli.cli import app
-
-runner = CliRunner()
 
 PAGE_ID = "aabbccdd-1122-3344-5566-778899001122"
 
@@ -15,29 +13,16 @@ MOCK_COMMENT = {
     "rich_text": [{"plain_text": "Hello"}],
 }
 
-MOCK_COMMENTS_LIST = {
-    "results": [MOCK_COMMENT],
-    "has_more": False,
-}
-
-
-def _make_client(mock_client: AsyncMock) -> AsyncMock:
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=None)
-    return mock_client
-
 
 class TestCommentAdd:
-    def test_add_page_comment(self) -> None:
-        mock_client = _make_client(AsyncMock())
+    def test_add_page_comment(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.comments.create.return_value = MOCK_COMMENT
 
-        with patch("notion_client.AsyncClient", return_value=mock_client):
-            result = runner.invoke(
-                app,
-                ["comment", "add", PAGE_ID, "--body", "Great work!"],
-                env={"NOTION_API_KEY": "secret"},
-            )
+        result = runner.invoke(
+            app,
+            ["comment", "add", PAGE_ID, "--body", "Great work!"],
+            env={"NOTION_API_KEY": "secret"},
+        )
 
         assert result.exit_code == 0
         call_kwargs = mock_client.comments.create.call_args.kwargs
@@ -45,16 +30,13 @@ class TestCommentAdd:
 
 
 class TestCommentList:
-    def test_list_comments(self) -> None:
-        mock_client = _make_client(AsyncMock())
-        mock_client.comments.list.return_value = MOCK_COMMENTS_LIST
+    def test_list_comments(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.comments.list.return_value = {
+            "results": [MOCK_COMMENT],
+            "has_more": False,
+        }
 
-        with patch("notion_client.AsyncClient", return_value=mock_client):
-            result = runner.invoke(
-                app,
-                ["comment", "list", PAGE_ID],
-                env={"NOTION_API_KEY": "secret"},
-            )
+        result = runner.invoke(app, ["comment", "list", PAGE_ID], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 0
         data = json.loads(result.stdout)
