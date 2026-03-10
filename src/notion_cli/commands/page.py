@@ -148,6 +148,17 @@ async def update(
             help="New page icon as an emoji. Example: '🔥'.",
         ),
     ] = None,
+    properties: Annotated[
+        str | None,
+        typer.Option(
+            "--properties",
+            help=(
+                "Properties as a JSON string. Use this to update any page property "
+                "including database row fields like Status, Date, or custom fields. "
+                'Example: \'{"Status": {"select": {"name": "Done"}}}\''
+            ),
+        ),
+    ] = None,
     archive: Annotated[
         bool | None,
         typer.Option(
@@ -160,20 +171,28 @@ async def update(
 ) -> None:
     """Update properties of an existing Notion page.
 
-    Modify the title, icon, or archive status. Only specified fields are changed;
-    omitted fields remain untouched.
+    Modify the title, icon, archive status, or any page property. For database
+    rows, use --properties to set fields like Status, Date, or custom properties.
+    Only specified fields are changed; omitted fields remain untouched.
 
     Examples:
         notion page update abc123 --title "Renamed Page"
         notion page update abc123 --archive
-        notion page update abc123 --icon '🚀'
+        notion page update abc123 --properties '{"Status": {"select": {"name": "Done"}}}'
     """
+    import json
+
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
 
     kwargs: dict[str, object] = {"page_id": pid}
+    props: dict[str, object] = {}
     if title is not None:
-        kwargs["properties"] = {"title": {"title": [{"text": {"content": title}}]}}
+        props["title"] = {"title": [{"text": {"content": title}}]}
+    if properties is not None:
+        props.update(json.loads(properties))
+    if props:
+        kwargs["properties"] = props
     if icon is not None:
         kwargs["icon"] = {"type": "emoji", "emoji": icon}
     if archive is not None:
@@ -219,10 +238,13 @@ async def move(
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.pages.update(
-            page_id=pid,
-            parent={"page_id": new_parent_id},
-        ), timeout)
+        result = await await_with_timeout(
+            client.pages.update(
+                page_id=pid,
+                parent={"page_id": new_parent_id},
+            ),
+            timeout,
+        )
     typer.echo(format_json(result))
 
 
@@ -253,10 +275,13 @@ async def duplicate(
 
     async with AsyncClient(auth=resolved_token) as client:
         original = await await_with_timeout(client.pages.retrieve(pid), timeout)
-        result = await await_with_timeout(client.pages.create(
-            parent=original["parent"],
-            properties=original["properties"],
-            icon=original.get("icon"),
-            cover=original.get("cover"),
-        ), timeout)
+        result = await await_with_timeout(
+            client.pages.create(
+                parent=original["parent"],
+                properties=original["properties"],
+                icon=original.get("icon"),
+                cover=original.get("cover"),
+            ),
+            timeout,
+        )
     typer.echo(format_json(result))
