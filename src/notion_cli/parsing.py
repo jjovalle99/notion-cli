@@ -50,13 +50,23 @@ def read_content(value: str) -> str:
     if value.startswith("@"):
         path = Path(value[1:])
         try:
-            return path.read_text()
+            return path.read_text(encoding="utf-8")
         except FileNotFoundError:
             sys.stderr.write(
                 format_error(
                     "file_not_found",
                     f"File not found: {path}",
                     suggestion="Check the file path and try again.",
+                )
+                + "\n"
+            )
+            raise SystemExit(ExitCode.BAD_ARGS)
+        except (UnicodeDecodeError, IsADirectoryError):
+            sys.stderr.write(
+                format_error(
+                    "file_read_error",
+                    f"Cannot read file: {path}",
+                    suggestion="File must be UTF-8 encoded text.",
                 )
                 + "\n"
             )

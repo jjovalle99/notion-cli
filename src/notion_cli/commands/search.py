@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import click
 import typer
 
 from notion_cli._async import await_with_timeout, run_async
@@ -24,11 +25,8 @@ async def search(
         typer.Option(
             "--type",
             "-t",
-            help=(
-                "Filter results by object type. "
-                "Accepted values: 'page', 'database'. "
-                "Omit to return both."
-            ),
+            click_type=click.Choice(["page", "database"]),
+            help="Filter results by object type. Omit to return both.",
         ),
     ] = None,
     token: Annotated[str | None, token_option()] = None,
