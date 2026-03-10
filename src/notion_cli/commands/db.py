@@ -1,4 +1,4 @@
-import json as json
+import json
 from typing import Annotated
 
 import typer

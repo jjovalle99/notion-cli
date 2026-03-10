@@ -6,7 +6,6 @@ from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import token_option
 from notion_cli.output import format_json
-from notion_cli.parsing import extract_id
 
 user_app = typer.Typer(
     name="user",
@@ -56,11 +55,10 @@ async def get(
         notion user get aabbccdd-1122-3344-5566-778899001122
     """
     resolved_token = resolve_token(token=token)
-    uid = extract_id(user_id)
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.users.retrieve(uid)
+        result = await client.users.retrieve(user_id)
     typer.echo(format_json(result))
 
 
