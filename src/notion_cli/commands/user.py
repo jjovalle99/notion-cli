@@ -21,6 +21,14 @@ user_app = typer.Typer(
 @user_app.command(name="list")
 @run_async
 async def list_users(
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit",
+            "-l",
+            help="Maximum number of users to return. Omit to return all.",
+        ),
+    ] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -30,6 +38,7 @@ async def list_users(
 
     Examples:
         notion user list
+        notion user list --limit 10
     """
     resolved_token = resolve_token(token=token)
     all_results: list[object] = []
@@ -39,12 +48,19 @@ async def list_users(
         result = await await_with_timeout(client.users.list(), timeout)
         all_results.extend(result["results"])
 
-        while result.get("has_more") and result.get("next_cursor") and result.get("results"):
+        while (
+            result.get("has_more")
+            and result.get("next_cursor")
+            and result.get("results")
+            and (limit is None or len(all_results) < limit)
+        ):
             result = await await_with_timeout(
                 client.users.list(start_cursor=result["next_cursor"]), timeout
             )
             all_results.extend(result["results"])
 
+    if limit is not None:
+        all_results = all_results[:limit]
     result["results"] = all_results
     result["has_more"] = False
     typer.echo(format_json(result))

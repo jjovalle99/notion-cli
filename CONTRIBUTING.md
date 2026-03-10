@@ -101,6 +101,10 @@ Write help text that a coding agent can use without any other documentation:
 - The command docstring should explain what it does, what it returns, and show usage examples
 - Be specific ("Page ID or Notion URL") not vague ("identifier")
 
+## Known limitations
+
+`read_content()` in `parsing.py` performs synchronous blocking I/O (`sys.stdin.read`, `Path.read_text`) inside async command bodies. This is fine for the current CLI use case (single command, no concurrent I/O). If the codebase is ever adapted for concurrent or server use, these calls should be wrapped with `asyncio.to_thread()`.
+
 ## Testing
 
 Tests use `pytest` with shared fixtures from `conftest.py`:
