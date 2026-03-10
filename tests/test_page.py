@@ -76,6 +76,19 @@ class TestPageCreate:
         call_kwargs = mock_client.pages.create.call_args.kwargs
         assert "markdown" in call_kwargs
 
+    def test_create_with_icon(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.create.return_value = MOCK_PAGE
+
+        result = runner.invoke(
+            app,
+            ["page", "create", "--parent", PARENT_ID, "--title", "New Page", "--icon", "📝"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.pages.create.call_args.kwargs
+        assert call_kwargs["icon"] == {"type": "emoji", "emoji": "📝"}
+
 
 class TestPageUpdate:
     def test_update_title(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -126,6 +139,19 @@ class TestPageUpdate:
         assert result.exit_code == 0
         call_kwargs = mock_client.pages.update.call_args.kwargs
         assert call_kwargs["properties"]["Status"] == {"select": {"name": "Done"}}
+
+    def test_update_icon(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.update.return_value = MOCK_PAGE
+
+        result = runner.invoke(
+            app,
+            ["page", "update", PAGE_ID, "--icon", "🔥"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.pages.update.call_args.kwargs
+        assert call_kwargs["icon"] == {"type": "emoji", "emoji": "🔥"}
 
 
 class TestPageMove:

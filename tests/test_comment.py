@@ -41,3 +41,18 @@ class TestCommentList:
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert len(data["results"]) == 1
+
+    def test_list_paginates(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        page1 = {"results": [MOCK_COMMENT], "has_more": True, "next_cursor": "cursor-abc"}
+        page2 = {
+            "results": [{"id": "comment-2", "object": "comment", "rich_text": []}],
+            "has_more": False,
+        }
+        mock_client.comments.list.side_effect = [page1, page2]
+
+        result = runner.invoke(app, ["comment", "list", PAGE_ID], env={"NOTION_API_KEY": "secret"})
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["results"]) == 2
+        assert mock_client.comments.list.call_count == 2

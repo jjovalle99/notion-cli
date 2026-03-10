@@ -143,6 +143,30 @@ class TestDbCreate:
         call_kwargs = mock_client.databases.create.call_args.kwargs
         assert "parent" in call_kwargs
 
+    def test_create_with_properties(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.databases.create.return_value = MOCK_DB
+        props_json = '{"Status": {"select": {}}}'
+
+        result = runner.invoke(
+            app,
+            [
+                "db",
+                "create",
+                "--parent",
+                PARENT_ID,
+                "--title",
+                "New DB",
+                "--properties",
+                props_json,
+            ],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.databases.create.call_args.kwargs
+        assert "Name" in call_kwargs["properties"]
+        assert "Status" in call_kwargs["properties"]
+
 
 class TestDbUpdate:
     def test_update_title(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -155,3 +179,17 @@ class TestDbUpdate:
         )
 
         assert result.exit_code == 0
+
+    def test_update_properties(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.databases.update.return_value = MOCK_DB
+        props_json = '{"Priority": {"select": {}}}'
+
+        result = runner.invoke(
+            app,
+            ["db", "update", DB_ID, "--properties", props_json],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.databases.update.call_args.kwargs
+        assert "Priority" in call_kwargs["properties"]

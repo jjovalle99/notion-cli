@@ -7,6 +7,7 @@ authors = [
     { name = "jjovalle99", email = "juan.ovalle@mistral.ai" }
 ]
 requires-python = ">=3.12"
+license = {text = "MIT"}
 dependencies = [
     "typer>=0.15",
     "notion-client>=3.0",

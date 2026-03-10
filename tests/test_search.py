@@ -82,3 +82,19 @@ def test_search_paginates(runner: CliRunner, mock_client: AsyncMock) -> None:
     data = json.loads(result.stdout)
     assert len(data["results"]) == 2
     assert mock_client.search.call_count == 2
+
+
+def test_search_with_limit(runner: CliRunner, mock_client: AsyncMock) -> None:
+    mock_client.search.return_value = {
+        "results": [{"id": f"p{i}"} for i in range(20)],
+        "has_more": True,
+        "next_cursor": "cur",
+    }
+
+    result = runner.invoke(
+        app, ["search", "test", "--limit", "5"], env={"NOTION_API_KEY": "secret"}
+    )
+
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert len(data["results"]) == 5

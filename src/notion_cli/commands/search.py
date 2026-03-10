@@ -29,6 +29,14 @@ async def search(
             help="Filter results by object type. Omit to return both.",
         ),
     ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit",
+            "-l",
+            help="Maximum number of results to return. Omit to return all.",
+        ),
+    ] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -40,12 +48,14 @@ async def search(
     Examples:
         notion search "meeting notes"
         notion search "Q1 roadmap" --type page
-        notion search "projects" --type database
+        notion search "projects" --limit 10
     """
     resolved_token = resolve_token(token=token)
     kwargs: dict[str, object] = {"query": query}
     if type is not None:
         kwargs["filter"] = {"property": "object", "value": type}
+    if limit is not None:
+        kwargs["page_size"] = min(limit, 100)
 
     all_results: list[object] = []
     from notion_client import AsyncClient
@@ -54,11 +64,18 @@ async def search(
         result = await await_with_timeout(client.search(**kwargs), timeout)
         all_results.extend(result["results"])
 
-        while result.get("has_more") and result.get("next_cursor") and result.get("results"):
+        while (
+            result.get("has_more")
+            and result.get("next_cursor")
+            and result.get("results")
+            and (limit is None or len(all_results) < limit)
+        ):
             kwargs["start_cursor"] = result["next_cursor"]
             result = await await_with_timeout(client.search(**kwargs), timeout)
             all_results.extend(result["results"])
 
+    if limit is not None:
+        all_results = all_results[:limit]
     result["results"] = all_results
     result["has_more"] = False
     typer.echo(format_json(result))

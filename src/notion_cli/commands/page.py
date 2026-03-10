@@ -175,6 +175,7 @@ async def update(
     Modify the title, icon, archive status, or any page property. For database
     rows, use --properties to set fields like Status, Date, or custom properties.
     Only specified fields are changed; omitted fields remain untouched.
+    If both --title and --properties include a "title" key, --properties wins.
 
     Examples:
         notion page update abc123 --title "Renamed Page"

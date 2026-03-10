@@ -24,6 +24,18 @@ class TestUserList:
         data = json.loads(result.stdout)
         assert len(data["results"]) == 2
 
+    def test_list_paginates(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        page1 = {"results": [MOCK_USER], "has_more": True, "next_cursor": "cursor-abc"}
+        page2 = {"results": [MOCK_BOT], "has_more": False}
+        mock_client.users.list.side_effect = [page1, page2]
+
+        result = runner.invoke(app, ["user", "list"], env={"NOTION_API_KEY": "secret"})
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["results"]) == 2
+        assert mock_client.users.list.call_count == 2
+
 
 class TestUserGet:
     def test_get_user(self, runner: CliRunner, mock_client: AsyncMock) -> None:
