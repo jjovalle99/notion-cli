@@ -7,7 +7,6 @@ from notion_cli.output import ExitCode, format_error
 _UUID_PATTERN = re.compile(
     r"[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}", re.I
 )
-_HEX32_PATTERN = re.compile(r"[0-9a-f]{32}", re.I)
 
 
 def _format_uuid(hex32: str) -> str:
@@ -27,10 +26,6 @@ def extract_id(value: str) -> str:
     match = _UUID_PATTERN.search(clean)
     if match:
         return _format_uuid(match.group())
-
-    hex_match = _HEX32_PATTERN.search(clean)
-    if hex_match:
-        return _format_uuid(hex_match.group())
 
     sys.stderr.write(
         format_error(

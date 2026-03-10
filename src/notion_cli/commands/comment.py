@@ -4,6 +4,7 @@ import typer
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
+from notion_cli.options import token_option
 from notion_cli.output import format_json
 from notion_cli.parsing import extract_id
 
@@ -16,14 +17,6 @@ comment_app = typer.Typer(
     ),
     no_args_is_help=True,
 )
-
-
-def _token_option() -> typer.Option:
-    return typer.Option(
-        "--token",
-        envvar="NOTION_API_KEY",
-        help="Notion API token. Defaults to NOTION_API_KEY env var.",
-    )
 
 
 @comment_app.command()
@@ -41,7 +34,7 @@ async def add(
             help="Comment text. Plain text or rich text content.",
         ),
     ],
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """Add a comment to a Notion page.
 
@@ -72,7 +65,7 @@ async def list_comments(
         str,
         typer.Argument(help="Page ID or URL to list comments for."),
     ],
-    token: Annotated[str | None, _token_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
 ) -> None:
     """List all comments on a Notion page.
 
