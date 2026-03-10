@@ -52,10 +52,13 @@ async def add(
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.comments.create(
-            parent={"page_id": pid},
-            rich_text=[{"text": {"content": body}}],
-        ), timeout)
+        result = await await_with_timeout(
+            client.comments.create(
+                parent={"page_id": pid},
+                rich_text=[{"text": {"content": body}}],
+            ),
+            timeout,
+        )
     typer.echo(format_json(result))
 
 
@@ -88,8 +91,10 @@ async def list_comments(
         result = await await_with_timeout(client.comments.list(block_id=pid), timeout)
         all_results.extend(result["results"])
 
-        while result.get("has_more"):
-            result = await await_with_timeout(client.comments.list(block_id=pid, start_cursor=result["next_cursor"]), timeout)
+        while result.get("has_more") and result.get("next_cursor") and result.get("results"):
+            result = await await_with_timeout(
+                client.comments.list(block_id=pid, start_cursor=result["next_cursor"]), timeout
+            )
             all_results.extend(result["results"])
 
     result["results"] = all_results

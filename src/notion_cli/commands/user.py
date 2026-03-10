@@ -32,10 +32,21 @@ async def list_users(
         notion user list
     """
     resolved_token = resolve_token(token=token)
+    all_results: list[object] = []
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.users.list(), timeout)
+        all_results.extend(result["results"])
+
+        while result.get("has_more") and result.get("next_cursor") and result.get("results"):
+            result = await await_with_timeout(
+                client.users.list(start_cursor=result["next_cursor"]), timeout
+            )
+            all_results.extend(result["results"])
+
+    result["results"] = all_results
+    result["has_more"] = False
     typer.echo(format_json(result))
 
 

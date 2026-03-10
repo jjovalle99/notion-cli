@@ -127,3 +127,22 @@ class TestPageMove:
         assert result.exit_code == 0
         call_kwargs = mock_client.pages.update.call_args.kwargs
         assert "parent" in call_kwargs
+
+
+class TestPageDuplicate:
+    def test_duplicate_page(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.retrieve.return_value = {
+            **MOCK_PAGE,
+            "parent": {"page_id": PARENT_ID},
+            "icon": {"type": "emoji", "emoji": "📝"},
+            "cover": None,
+        }
+        mock_client.pages.create.return_value = {**MOCK_PAGE, "id": "new-page-id"}
+
+        result = runner.invoke(
+            app, ["page", "duplicate", PAGE_ID], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        mock_client.pages.retrieve.assert_called_once()
+        mock_client.pages.create.assert_called_once()

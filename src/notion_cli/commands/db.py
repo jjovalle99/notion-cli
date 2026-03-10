@@ -121,7 +121,12 @@ async def query(
         result = await await_with_timeout(client.databases.query(**kwargs), timeout)
         all_results.extend(result["results"])
 
-        while result.get("has_more") and (limit is None or len(all_results) < limit):
+        while (
+            result.get("has_more")
+            and result.get("next_cursor")
+            and result.get("results")
+            and (limit is None or len(all_results) < limit)
+        ):
             kwargs["start_cursor"] = result["next_cursor"]
             result = await await_with_timeout(client.databases.query(**kwargs), timeout)
             all_results.extend(result["results"])

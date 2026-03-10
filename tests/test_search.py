@@ -69,3 +69,16 @@ def test_search_filter_by_type(runner: CliRunner, mock_client: AsyncMock) -> Non
     assert result.exit_code == 0
     call_kwargs = mock_client.search.call_args.kwargs
     assert call_kwargs["filter"] == {"property": "object", "value": "page"}
+
+
+def test_search_paginates(runner: CliRunner, mock_client: AsyncMock) -> None:
+    page1 = {"results": [{"id": "p1"}], "has_more": True, "next_cursor": "cur1"}
+    page2 = {"results": [{"id": "p2"}], "has_more": False}
+    mock_client.search.side_effect = [page1, page2]
+
+    result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "secret"})
+
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert len(data["results"]) == 2
+    assert mock_client.search.call_count == 2

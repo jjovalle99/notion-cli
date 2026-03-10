@@ -91,6 +91,43 @@ class TestDbQuery:
         second_call_kwargs = mock_client.databases.query.call_args_list[1].kwargs
         assert second_call_kwargs["start_cursor"] == "cursor-abc"
 
+    def test_query_stops_on_missing_next_cursor(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        page1 = {"results": [{"id": "row-1"}], "has_more": True}
+        mock_client.databases.query.return_value = page1
+
+        result = runner.invoke(app, ["db", "query", DB_ID], env={"NOTION_API_KEY": "secret"})
+
+        assert result.exit_code == 0
+        assert mock_client.databases.query.call_count == 1
+
+    def test_query_stops_on_empty_results(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        page1 = {"results": [], "has_more": True, "next_cursor": "cur"}
+        mock_client.databases.query.return_value = page1
+
+        result = runner.invoke(app, ["db", "query", DB_ID], env={"NOTION_API_KEY": "secret"})
+
+        assert result.exit_code == 0
+        assert mock_client.databases.query.call_count == 1
+
+    def test_query_with_limit(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        page1 = {
+            "results": [{"id": f"r{i}"} for i in range(100)],
+            "has_more": True,
+            "next_cursor": "c",
+        }
+        page2 = {"results": [{"id": f"r{i}"} for i in range(100, 200)], "has_more": False}
+        mock_client.databases.query.side_effect = [page1, page2]
+
+        result = runner.invoke(
+            app, ["db", "query", DB_ID, "--limit", "50"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["results"]) == 50
+
 
 class TestDbCreate:
     def test_create_database(self, runner: CliRunner, mock_client: AsyncMock) -> None:
