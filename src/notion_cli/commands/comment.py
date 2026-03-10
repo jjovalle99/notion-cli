@@ -4,7 +4,7 @@ import typer
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import token_option
+from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
 from notion_cli.parsing import extract_id
 
@@ -35,6 +35,7 @@ async def add(
         ),
     ],
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Add a comment to a Notion page.
 
@@ -48,13 +49,16 @@ async def add(
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
 
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.comments.create(
+        coro = client.comments.create(
             parent={"page_id": pid},
             rich_text=[{"text": {"content": body}}],
         )
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
 
 
@@ -66,6 +70,7 @@ async def list_comments(
         typer.Argument(help="Page ID or URL to list comments for."),
     ],
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """List all comments on a Notion page.
 
@@ -80,14 +85,18 @@ async def list_comments(
     pid = extract_id(page_id)
 
     all_results: list[object] = []
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.comments.list(block_id=pid)
+        coro = client.comments.list(block_id=pid)
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
         all_results.extend(result["results"])
 
         while result.get("has_more"):
-            result = await client.comments.list(block_id=pid, start_cursor=result["next_cursor"])
+            coro = client.comments.list(block_id=pid, start_cursor=result["next_cursor"])
+            result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
             all_results.extend(result["results"])
 
     result["results"] = all_results

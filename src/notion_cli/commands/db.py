@@ -5,7 +5,7 @@ import typer
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import token_option
+from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
 from notion_cli.parsing import extract_id
 
@@ -30,6 +30,7 @@ async def get(
         ),
     ],
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Retrieve a Notion database schema by ID or URL.
 
@@ -42,10 +43,13 @@ async def get(
     """
     resolved_token = resolve_token(token=token)
     did = extract_id(db_id)
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.databases.retrieve(did)
+        coro = client.databases.retrieve(did)
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
 
 
@@ -89,6 +93,7 @@ async def query(
         ),
     ] = None,
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Query pages in a Notion database with optional filter and sort.
 
@@ -113,15 +118,19 @@ async def query(
         kwargs["page_size"] = min(limit, 100)
 
     all_results: list[object] = []
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.databases.query(**kwargs)
+        coro = client.databases.query(**kwargs)
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
         all_results.extend(result["results"])
 
         while result.get("has_more") and (limit is None or len(all_results) < limit):
             kwargs["start_cursor"] = result["next_cursor"]
-            result = await client.databases.query(**kwargs)
+            coro = client.databases.query(**kwargs)
+            result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
             all_results.extend(result["results"])
 
     if limit is not None:
@@ -162,6 +171,7 @@ async def create(
         ),
     ] = None,
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Create a new Notion database under a parent page.
 
@@ -185,10 +195,13 @@ async def create(
         parsed_props = json.loads(properties)
         kwargs["properties"] = {**kwargs["properties"], **parsed_props}  # type: ignore[arg-type]
 
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.databases.create(**kwargs)
+        coro = client.databases.create(**kwargs)
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
 
 
@@ -215,6 +228,7 @@ async def update(
         ),
     ] = None,
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Update a Notion database's title or properties schema.
 
@@ -233,8 +247,11 @@ async def update(
     if properties is not None:
         kwargs["properties"] = json.loads(properties)
 
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.databases.update(**kwargs)
+        coro = client.databases.update(**kwargs)
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))

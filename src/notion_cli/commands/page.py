@@ -4,7 +4,7 @@ import typer
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import token_option
+from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
 from notion_cli.parsing import extract_id, read_content
 
@@ -28,6 +28,7 @@ async def get(
         ),
     ],
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Retrieve a single Notion page by ID or URL.
 
@@ -41,10 +42,13 @@ async def get(
     """
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.pages.retrieve(pid)
+        coro = client.pages.retrieve(pid)
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
 
 
@@ -90,6 +94,7 @@ async def create(
         ),
     ] = None,
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Create a new Notion page under a parent page or database.
 
@@ -115,10 +120,13 @@ async def create(
     if icon is not None:
         kwargs["icon"] = {"type": "emoji", "emoji": icon}
 
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.pages.create(**kwargs)
+        coro = client.pages.create(**kwargs)
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
 
 
@@ -154,6 +162,7 @@ async def update(
         ),
     ] = False,
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Update properties of an existing Notion page.
 
@@ -176,10 +185,13 @@ async def update(
     if archive:
         kwargs["archived"] = True
 
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.pages.update(**kwargs)
+        coro = client.pages.update(**kwargs)
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
 
 
@@ -198,6 +210,7 @@ async def move(
         ),
     ],
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Move a Notion page to a different parent.
 
@@ -212,13 +225,16 @@ async def move(
     pid = extract_id(page_id)
     new_parent_id = extract_id(to)
 
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.pages.update(
+        coro = client.pages.update(
             page_id=pid,
             parent={"page_id": new_parent_id},
         )
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
 
 
@@ -230,6 +246,7 @@ async def duplicate(
         typer.Argument(help="Page ID or Notion URL to duplicate."),
     ],
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Duplicate a Notion page.
 
@@ -244,14 +261,18 @@ async def duplicate(
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
 
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        original = await client.pages.retrieve(pid)
-        result = await client.pages.create(
+        coro = client.pages.retrieve(pid)
+        original = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
+        coro = client.pages.create(
             parent=original["parent"],
             properties=original["properties"],
             icon=original.get("icon"),
             cover=original.get("cover"),
         )
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
