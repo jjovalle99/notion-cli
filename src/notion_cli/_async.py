@@ -19,6 +19,14 @@ def run_async[**P](fn: Callable[P, Coroutine[object, object, None]]) -> Callable
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> None:
         try:
             asyncio.run(fn(*args, **kwargs))
+        except TimeoutError:
+            import typer
+
+            typer.echo(
+                format_error("timeout", "API request timed out."),
+                err=True,
+            )
+            raise SystemExit(ExitCode.ERROR)
         except Exception as exc:
             from notion_client.errors import APIResponseError
 

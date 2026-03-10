@@ -4,7 +4,7 @@ import typer
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import token_option
+from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
 
 team_app = typer.Typer(
@@ -22,6 +22,7 @@ team_app = typer.Typer(
 @run_async
 async def list_teams(
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """List all teamspaces accessible to the integration.
 
@@ -32,11 +33,11 @@ async def list_teams(
         notion team list
     """
     resolved_token = resolve_token(token=token)
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.request(
-            path="teamspaces",
-            method="GET",
-        )
+        coro = client.request(path="teamspaces", method="GET")
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))

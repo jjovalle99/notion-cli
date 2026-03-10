@@ -4,7 +4,7 @@ import typer
 
 from notion_cli._async import run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import token_option
+from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
 
 user_app = typer.Typer(
@@ -22,6 +22,7 @@ user_app = typer.Typer(
 @run_async
 async def list_users(
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """List all users in the Notion workspace.
 
@@ -31,10 +32,13 @@ async def list_users(
         notion user list
     """
     resolved_token = resolve_token(token=token)
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.users.list()
+        coro = client.users.list()
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
 
 
@@ -46,6 +50,7 @@ async def get(
         typer.Argument(help="User ID (UUID format)."),
     ],
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Retrieve a specific Notion user by ID.
 
@@ -55,10 +60,13 @@ async def get(
         notion user get aabbccdd-1122-3344-5566-778899001122
     """
     resolved_token = resolve_token(token=token)
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.users.retrieve(user_id)
+        coro = client.users.retrieve(user_id)
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
 
 
@@ -66,6 +74,7 @@ async def get(
 @run_async
 async def me(
     token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Get the current bot user and workspace info.
 
@@ -76,8 +85,11 @@ async def me(
         notion user me
     """
     resolved_token = resolve_token(token=token)
+    import asyncio
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await client.users.me()
+        coro = client.users.me()
+        result = await (asyncio.wait_for(coro, timeout=timeout) if timeout else coro)
     typer.echo(format_json(result))
