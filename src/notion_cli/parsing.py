@@ -1,3 +1,4 @@
+import json
 import re
 import sys
 from pathlib import Path
@@ -83,7 +84,6 @@ def parse_json(value: str, *, expected_type: type, label: str) -> dict | list:
         expected_type: Expected Python type (dict or list).
         label: Option name for error messages (e.g. "--filter").
     """
-    import json
 
     try:
         parsed = json.loads(value)
