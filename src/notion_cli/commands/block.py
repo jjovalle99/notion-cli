@@ -67,7 +67,7 @@ async def get(
             result = await await_with_timeout(
                 client.blocks.children.list(bid, start_cursor=result["next_cursor"]), timeout
             )
-            all_results.extend(result["results"])
+            all_results.extend(result.get("results", []))
 
     if markdown:
         from notion_cli.markdown import blocks_to_markdown

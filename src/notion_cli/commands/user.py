@@ -64,7 +64,7 @@ async def list_users(
             result = await await_with_timeout(
                 client.users.list(start_cursor=result["next_cursor"], **kwargs), timeout
             )
-            all_results.extend(result["results"])
+            all_results.extend(result.get("results", []))
 
     if limit is not None:
         all_results = all_results[:limit]
