@@ -54,7 +54,7 @@ async def list_users(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.users.list(**kwargs), timeout)
-        all_results.extend(result.get("results", []))
+        all_results.extend(result.get("results") or [])
 
         while (
             result.get("has_more")
@@ -67,7 +67,7 @@ async def list_users(
             result = await await_with_timeout(
                 client.users.list(start_cursor=result["next_cursor"], **kwargs), timeout
             )
-            all_results.extend(result.get("results", []))
+            all_results.extend(result.get("results") or [])
 
         envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
 
