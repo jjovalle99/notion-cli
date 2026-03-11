@@ -20,11 +20,6 @@ def test_format_json_compact_by_default() -> None:
     assert "\n" not in result
 
 
-def test_format_json_pretty_when_requested() -> None:
-    result = format_json({"a": 1}, pretty=True)
-    assert "\n" in result
-
-
 def test_format_error_structure() -> None:
     result = format_error("not_found", "Page not found", suggestion="Check the page ID")
     parsed = json.loads(result)

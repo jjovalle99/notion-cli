@@ -3,7 +3,6 @@
 from typing import Any
 
 _HEADING_PREFIX = {"heading_1": "# ", "heading_2": "## ", "heading_3": "### "}
-_HEADING_TYPES = frozenset(_HEADING_PREFIX)
 
 
 def rich_text_to_md(rich_text: list[dict[str, Any]]) -> str:
@@ -45,7 +44,7 @@ def _block_to_md(block: dict[str, Any], number: int) -> str:
     rich_text = data.get("rich_text", [])
     text = rich_text_to_md(rich_text)
 
-    if block_type in _HEADING_TYPES:
+    if block_type in _HEADING_PREFIX:
         return _HEADING_PREFIX[block_type] + text
 
     if block_type == "paragraph":
@@ -119,9 +118,9 @@ def blocks_to_markdown(blocks: list[dict[str, Any]]) -> str:
         else:
             numbered_counter = 0
 
-        if block_type in _HEADING_TYPES and lines:
+        if block_type in _HEADING_PREFIX and lines:
             lines.append("")
-        if prev_type in _HEADING_TYPES and block_type not in _HEADING_TYPES:
+        if prev_type in _HEADING_PREFIX and block_type not in _HEADING_PREFIX:
             lines.append("")
 
         line = _block_to_md(block, numbered_counter)
