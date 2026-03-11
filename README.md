@@ -29,15 +29,7 @@ pip install notionctl
 
 ## Authentication
 
-**Option 1: API token** (simplest for agents and CI)
-
-Get a token from https://www.notion.so/my-integrations:
-
-```bash
-export NOTION_API_KEY="secret_..."
-```
-
-**Option 2: OAuth** (for interactive use)
+**OAuth (recommended)**
 
 ```bash
 notion auth login     # opens browser, stores token locally
@@ -45,7 +37,17 @@ notion auth status    # check current auth
 notion auth logout    # revoke and delete token
 ```
 
-When prompted, select all pages for full workspace access.
+When prompted, select all pages for full workspace access. Credentials are stored in `~/.config/notion-cli/` and persist across `uvx` runs.
+
+**API token** (for CI or headless environments)
+
+Get a token from https://www.notion.so/my-integrations:
+
+```bash
+export NOTION_API_KEY="secret_..."
+```
+
+Or pass per command with `--token`.
 
 ## Commands
 
