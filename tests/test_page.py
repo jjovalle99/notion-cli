@@ -56,7 +56,7 @@ class TestPageCreate:
         assert "parent" in call_kwargs
 
     def test_create_with_markdown_content(self, runner: CliRunner, mock_client: AsyncMock) -> None:
-        mock_client.pages.create.return_value = MOCK_PAGE
+        mock_client.request.return_value = MOCK_PAGE
 
         result = runner.invoke(
             app,
@@ -74,8 +74,15 @@ class TestPageCreate:
         )
 
         assert result.exit_code == 0
-        call_kwargs = mock_client.pages.create.call_args.kwargs
-        assert "content" in call_kwargs
+        mock_client.request.assert_called_once()
+        call_kwargs = mock_client.request.call_args.kwargs
+        assert call_kwargs["path"] == "pages"
+        assert call_kwargs["method"] == "POST"
+        body = call_kwargs["body"]
+        assert body["markdown"] == "# Heading\nSome text"
+        assert "content" not in body
+        assert "parent" in body
+        assert "properties" in body
 
     def test_create_with_icon(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.pages.create.return_value = MOCK_PAGE
@@ -97,7 +104,7 @@ class TestPageCreateFileAndStdin:
     ) -> None:
         md_file = tmp_path / "notes.md"
         md_file.write_text("# Title\nBody text")
-        mock_client.pages.create.return_value = MOCK_PAGE
+        mock_client.request.return_value = MOCK_PAGE
 
         result = runner.invoke(
             app,
@@ -115,11 +122,11 @@ class TestPageCreateFileAndStdin:
         )
 
         assert result.exit_code == 0
-        call_kwargs = mock_client.pages.create.call_args.kwargs
-        assert call_kwargs["content"] == "# Title\nBody text"
+        body = mock_client.request.call_args.kwargs["body"]
+        assert body["markdown"] == "# Title\nBody text"
 
     def test_create_with_stdin(self, runner: CliRunner, mock_client: AsyncMock) -> None:
-        mock_client.pages.create.return_value = MOCK_PAGE
+        mock_client.request.return_value = MOCK_PAGE
 
         result = runner.invoke(
             app,
@@ -129,8 +136,8 @@ class TestPageCreateFileAndStdin:
         )
 
         assert result.exit_code == 0
-        call_kwargs = mock_client.pages.create.call_args.kwargs
-        assert call_kwargs["content"] == "stdin content"
+        body = mock_client.request.call_args.kwargs["body"]
+        assert body["markdown"] == "stdin content"
 
 
 class TestPageCreateParentType:
