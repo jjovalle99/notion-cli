@@ -93,12 +93,28 @@ The three guards (`has_more`, `next_cursor`, `results`) prevent infinite loops o
 
 ### Registering the command
 
-If your command belongs to an existing group (page, db, block, etc.), add it to the existing Typer sub-app in that file. If it's a new group, create a new file and register it in `cli.py`:
+If your command belongs to an existing group (page, db, block, etc.), add it to the existing Typer sub-app in that file.
+
+If it's a new group, create a new file and add an entry to the `_LAZY_GROUPS` dict in `cli.py`:
 
 ```python
-from notion_cli.commands.yourmodule import your_app  # noqa: E402
-app.add_typer(your_app)
+_LAZY_GROUPS: dict[str, tuple[str, str]] = {
+    "page": ("notion_cli.commands.page", "page_app"),
+    # ...
+    "yourgroup": ("notion_cli.commands.yourmodule", "your_app"),
+}
 ```
+
+For a standalone command (not a group), add it to `_LAZY_COMMANDS` instead:
+
+```python
+_LAZY_COMMANDS: dict[str, tuple[str, str]] = {
+    "search": ("notion_cli.commands.search", "search"),
+    "yourcommand": ("notion_cli.commands.yourmodule", "your_command"),
+}
+```
+
+Commands are lazy-loaded — `cli.py` never imports your module at the top level. The module is only imported when a user actually invokes that command. This keeps `notion --help` and `notion --version` fast regardless of how many commands exist.
 
 ### Help text
 
@@ -107,7 +123,17 @@ Write help text that a coding agent can use without any other documentation:
 - The command docstring should explain what it does, what it returns, and show usage examples
 - Be specific ("Page ID or Notion URL") not vague ("identifier")
 
-## Known limitations
+## Architecture notes
+
+### Lazy command loading
+
+`cli.py` uses a `_LazyTyperGroup` subclass that overrides Click's `get_command()`. Command modules are not imported at startup — only when the user invokes that specific command. To add a new command, you only need to add an entry to `_LAZY_GROUPS` or `_LAZY_COMMANDS`; no top-level imports required.
+
+### One `AsyncClient` per command invocation
+
+Each command creates its own `AsyncClient` inside an `async with` block. This is intentional. The CLI runs one command per process and exits — there is no benefit to sharing a client across commands. Within a single command, the `async with` block reuses the underlying HTTP connection pool for all API calls, including paginated loops.
+
+### Blocking I/O in parsing
 
 `read_content()` in `parsing.py` performs synchronous blocking I/O (`sys.stdin.read`, `Path.read_text`) inside async command bodies. This is fine for the current CLI use case (single command, no concurrent I/O). If the codebase is ever adapted for concurrent or server use, these calls should be wrapped with `asyncio.to_thread()`.
 
