@@ -119,6 +119,30 @@ class TestLogin:
         result = runner.invoke(auth_app, ["login"])
         assert result.exit_code != 0
 
+    @patch("notion_cli.commands.auth.Client")
+    @patch("notion_cli.commands.auth.HTTPServer")
+    @patch("notion_cli.commands.auth.webbrowser.open")
+    @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="fixed_state")
+    def test_missing_access_token(
+        self,
+        _mock_state: MagicMock,
+        _mock_browser: MagicMock,
+        mock_server_cls: MagicMock,
+        mock_client_cls: MagicMock,
+        runner: CliRunner,
+    ) -> None:
+        server = MagicMock()
+        mock_server_cls.return_value = server
+        server.handle_request.side_effect = lambda: setattr(
+            server, "callback_params", {"code": ["abc"], "state": ["fixed_state"]}
+        )
+        mock_client_cls.return_value.oauth.token.return_value = {"error": "invalid_grant"}
+
+        result = runner.invoke(auth_app, ["login"])
+        assert result.exit_code != 0
+        out = json.loads(result.output.splitlines()[-1])
+        assert out["error_type"] == "auth_failed"
+
     @patch("notion_cli.commands.auth.save_credentials")
     @patch("notion_cli.commands.auth.Client")
     @patch("notion_cli.commands.auth.HTTPServer")

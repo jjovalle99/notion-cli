@@ -119,8 +119,16 @@ def login(
         redirect_uri=redirect_uri,
     )
 
+    access_token = response.get("access_token")
+    if not access_token:
+        sys.stderr.write(
+            format_error("auth_failed", "OAuth token exchange failed — no access_token received.")
+            + "\n"
+        )
+        raise SystemExit(ExitCode.ERROR)
+
     cred_data: dict[str, str] = {
-        "access_token": response["access_token"],
+        "access_token": access_token,
         "workspace_id": response.get("workspace_id", ""),
         "workspace_name": response.get("workspace_name", ""),
         "bot_id": response.get("bot_id", ""),
