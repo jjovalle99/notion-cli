@@ -1,7 +1,69 @@
+import importlib
+
+import click
 import typer
+import typer.core as tc
+import typer.main as tm
+from typer.models import CommandInfo
+
+_LAZY_GROUPS: dict[str, tuple[str, str]] = {
+    "page": ("notion_cli.commands.page", "page_app"),
+    "db": ("notion_cli.commands.db", "db_app"),
+    "block": ("notion_cli.commands.block", "block_app"),
+    "comment": ("notion_cli.commands.comment", "comment_app"),
+    "user": ("notion_cli.commands.user", "user_app"),
+    "team": ("notion_cli.commands.team", "team_app"),
+}
+
+_LAZY_COMMANDS: dict[str, tuple[str, str]] = {
+    "search": ("notion_cli.commands.search", "search"),
+}
+
+_LAZY_ALL = {**_LAZY_GROUPS, **_LAZY_COMMANDS}
+
+
+class _LazyTyperGroup(tc.TyperGroup):
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        if cmd_name in _LAZY_GROUPS:
+            mod_path, attr = _LAZY_GROUPS[cmd_name]
+            typer_app = getattr(importlib.import_module(mod_path), attr)
+            group = tm.get_group(typer_app)
+            group.name = cmd_name
+            return group
+        if cmd_name in _LAZY_COMMANDS:
+            mod_path, attr = _LAZY_COMMANDS[cmd_name]
+            callback = getattr(importlib.import_module(mod_path), attr)
+            info = CommandInfo(callback=callback, name=cmd_name)
+            return tm.get_command_from_info(
+                info,
+                pretty_exceptions_short=True,
+                rich_markup_mode=self.rich_markup_mode,
+            )
+        return super().get_command(ctx, cmd_name)
+
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        return list(_LAZY_ALL)
+
+    def resolve_command(
+        self, ctx: click.Context, args: list[str]
+    ) -> tuple[str | None, click.Command | None, list[str]]:
+        try:
+            return super().resolve_command(ctx, args)
+        except click.UsageError as e:
+            if self.suggest_commands:
+                from difflib import get_close_matches
+
+                matches = get_close_matches(args[0], _LAZY_ALL) if args else []
+                if matches:
+                    suggestions = ", ".join(f"{m!r}" for m in matches)
+                    message = e.message.rstrip(".")
+                    e.message = f"{message}. Did you mean {suggestions}?"
+            raise
+
 
 app = typer.Typer(
     name="notion",
+    cls=_LazyTyperGroup,
     help=(
         "Agent-friendly CLI for the Notion API.\n\n"
         "Every command outputs compact JSON to stdout by default. "
@@ -33,20 +95,3 @@ def main(
     ),
 ) -> None:
     pass
-
-
-from notion_cli.commands.block import block_app  # noqa: E402
-from notion_cli.commands.comment import comment_app  # noqa: E402
-from notion_cli.commands.db import db_app  # noqa: E402
-from notion_cli.commands.page import page_app  # noqa: E402
-from notion_cli.commands.search import search  # noqa: E402
-from notion_cli.commands.team import team_app  # noqa: E402
-from notion_cli.commands.user import user_app  # noqa: E402
-
-app.command(name="search")(search)
-app.add_typer(page_app)
-app.add_typer(db_app)
-app.add_typer(block_app)
-app.add_typer(comment_app)
-app.add_typer(user_app)
-app.add_typer(team_app)
