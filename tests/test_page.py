@@ -242,7 +242,7 @@ class TestPageUpdate:
         )
 
         assert result.exit_code == 2
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "conflicting_args"
 
     def test_update_icon(self, runner: CliRunner, mock_client: AsyncMock) -> None:

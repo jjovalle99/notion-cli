@@ -132,7 +132,7 @@ class TestLogin:
 
         result = runner.invoke(auth_app, ["login"])
         assert result.exit_code != 0
-        out = json.loads(result.output.splitlines()[-1])
+        out = json.loads(result.stderr.strip())
         assert out["error_type"] == "missing_code"
 
     @patch("notion_client.Client")
@@ -156,7 +156,7 @@ class TestLogin:
 
         result = runner.invoke(auth_app, ["login"])
         assert result.exit_code != 0
-        out = json.loads(result.output.splitlines()[-1])
+        out = json.loads(result.stderr.strip())
         assert out["error_type"] == "auth_failed"
 
     @patch("notion_cli.commands.auth.save_credentials")
