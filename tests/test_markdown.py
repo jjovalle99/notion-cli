@@ -6,6 +6,10 @@ class TestRichText:
         rich_text = [{"type": "text", "text": {"content": "Hello world"}, "annotations": {}}]
         assert rich_text_to_md(rich_text) == "Hello world"
 
+    def test_null_annotations(self) -> None:
+        rich_text = [{"type": "text", "text": {"content": "hello"}, "annotations": None}]
+        assert rich_text_to_md(rich_text) == "hello"
+
     def test_bold(self) -> None:
         rich_text = [{"type": "text", "text": {"content": "bold"}, "annotations": {"bold": True}}]
         assert rich_text_to_md(rich_text) == "**bold**"

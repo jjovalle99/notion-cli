@@ -121,7 +121,7 @@ async def query(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.data_sources.query(did, **kwargs), timeout)
-        all_results.extend(result.get("results", []))
+        all_results.extend(result.get("results") or [])
 
         while (
             result.get("has_more")
@@ -133,7 +133,7 @@ async def query(
             if limit is not None:
                 kwargs["page_size"] = min(limit - len(all_results), 100)
             result = await await_with_timeout(client.data_sources.query(did, **kwargs), timeout)
-            all_results.extend(result.get("results", []))
+            all_results.extend(result.get("results") or [])
 
         envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
 
