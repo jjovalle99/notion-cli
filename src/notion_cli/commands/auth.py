@@ -7,7 +7,6 @@ from typing import Annotated
 from urllib.parse import parse_qs, urlparse
 
 import typer
-from notion_client import Client
 
 from notion_cli.credentials import delete_credentials, load_credentials, save_credentials
 from notion_cli.output import ExitCode, format_error, format_json
@@ -110,6 +109,8 @@ def login(
         sys.stderr.write(format_error("missing_code", "No authorization code received.") + "\n")
         raise SystemExit(ExitCode.ERROR)
 
+    from notion_client import Client
+
     client = Client(auth="")
     response = client.oauth.token(
         CLIENT_ID,
@@ -149,6 +150,8 @@ def logout() -> None:
         return
 
     try:
+        from notion_client import Client
+
         client = Client(auth="")
         client.oauth.revoke(
             CLIENT_ID,

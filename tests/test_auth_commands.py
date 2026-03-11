@@ -17,7 +17,7 @@ def runner() -> CliRunner:
 # ---------------------------------------------------------------------------
 class TestLogin:
     @patch("notion_cli.commands.auth.save_credentials")
-    @patch("notion_cli.commands.auth.Client")
+    @patch("notion_client.Client")
     @patch("notion_cli.commands.auth.HTTPServer")
     @patch("notion_cli.commands.auth.webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="fixed_state")
@@ -119,7 +119,7 @@ class TestLogin:
         result = runner.invoke(auth_app, ["login"])
         assert result.exit_code != 0
 
-    @patch("notion_cli.commands.auth.Client")
+    @patch("notion_client.Client")
     @patch("notion_cli.commands.auth.HTTPServer")
     @patch("notion_cli.commands.auth.webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="fixed_state")
@@ -144,7 +144,7 @@ class TestLogin:
         assert out["error_type"] == "auth_failed"
 
     @patch("notion_cli.commands.auth.save_credentials")
-    @patch("notion_cli.commands.auth.Client")
+    @patch("notion_client.Client")
     @patch("notion_cli.commands.auth.HTTPServer")
     @patch("notion_cli.commands.auth.webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="s")
@@ -182,7 +182,7 @@ class TestLogin:
 # ---------------------------------------------------------------------------
 class TestLogout:
     @patch("notion_cli.commands.auth.delete_credentials", return_value=True)
-    @patch("notion_cli.commands.auth.Client")
+    @patch("notion_client.Client")
     @patch("notion_cli.commands.auth.load_credentials")
     def test_success(
         self,
@@ -206,7 +206,7 @@ class TestLogout:
         assert out["status"] == "not_logged_in"
 
     @patch("notion_cli.commands.auth.delete_credentials", return_value=True)
-    @patch("notion_cli.commands.auth.Client")
+    @patch("notion_client.Client")
     @patch("notion_cli.commands.auth.load_credentials")
     def test_revoke_fails_still_deletes(
         self,
