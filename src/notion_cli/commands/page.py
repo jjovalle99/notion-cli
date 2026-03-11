@@ -125,16 +125,19 @@ async def create(
         "properties": {"title": {"title": [{"text": {"content": title}}]}},
     }
 
-    if content is not None:
-        kwargs["content"] = read_content(content)
-
     if icon is not None:
         kwargs["icon"] = {"type": "emoji", "emoji": icon}
 
     from notion_client import AsyncClient
 
-    async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.pages.create(**kwargs), timeout)
+    async with AsyncClient(auth=resolved_token, notion_version="2026-03-11") as client:
+        if content is not None:
+            # Bypass pages.create() which filters out 'markdown' via pick()
+            body = {**kwargs, "markdown": read_content(content)}
+            coro = client.request(path="pages", method="POST", body=body)
+        else:
+            coro = client.pages.create(**kwargs)
+        result = await await_with_timeout(coro, timeout)
     typer.echo(format_json(result))
 
 
