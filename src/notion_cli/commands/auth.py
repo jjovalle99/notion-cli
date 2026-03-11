@@ -46,6 +46,12 @@ def login(
     Opens a browser for Notion authorization. When prompted, select pages
     to share with the integration (use "Select all" for full workspace access).
     """
+    if port < 1 or port > 65535:
+        sys.stderr.write(
+            format_error("invalid_port", f"Port must be between 1 and 65535, got {port}.") + "\n"
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
+
     state = secrets.token_urlsafe(16)
     redirect_uri = f"http://localhost:{port}/callback"
     auth_url = (

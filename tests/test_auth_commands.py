@@ -62,6 +62,18 @@ class TestLogin:
         result = runner.invoke(auth_app, ["login"])
         assert result.exit_code != 0
 
+    def test_port_zero_rejected(self, runner: CliRunner) -> None:
+        result = runner.invoke(auth_app, ["login", "--port", "0"])
+        assert result.exit_code != 0
+        out = json.loads(result.stderr.strip())
+        assert out["error_type"] == "invalid_port"
+
+    def test_port_negative_rejected(self, runner: CliRunner) -> None:
+        result = runner.invoke(auth_app, ["login", "--port", "-1"])
+        assert result.exit_code != 0
+        out = json.loads(result.stderr.strip())
+        assert out["error_type"] == "invalid_port"
+
     @patch("notion_cli.commands.auth.HTTPServer")
     @patch("notion_cli.commands.auth.webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="s")
