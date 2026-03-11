@@ -97,6 +97,6 @@ async def list_comments(
             )
             all_results.extend(result.get("results", []))
 
-    result["results"] = all_results
-    result["has_more"] = False
-    typer.echo(format_json(result))
+        envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
+
+    typer.echo(format_json({**envelope, "results": all_results, "has_more": False}))
