@@ -89,13 +89,13 @@ async def list_comments(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.comments.list(block_id=pid), timeout)
-        all_results.extend(result.get("results", []))
+        all_results.extend(result.get("results") or [])
 
         while result.get("has_more") and result.get("next_cursor") and result.get("results"):
             result = await await_with_timeout(
                 client.comments.list(block_id=pid, start_cursor=result["next_cursor"]), timeout
             )
-            all_results.extend(result.get("results", []))
+            all_results.extend(result.get("results") or [])
 
         envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
 

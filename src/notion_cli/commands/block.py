@@ -61,13 +61,13 @@ async def get(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.blocks.children.list(bid), timeout)
-        all_results.extend(result.get("results", []))
+        all_results.extend(result.get("results") or [])
 
         while result.get("has_more") and result.get("next_cursor") and result.get("results"):
             result = await await_with_timeout(
                 client.blocks.children.list(bid, start_cursor=result["next_cursor"]), timeout
             )
-            all_results.extend(result.get("results", []))
+            all_results.extend(result.get("results") or [])
 
         envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
 
