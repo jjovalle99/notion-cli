@@ -110,7 +110,7 @@ def parse_json(value: str, *, expected_type: type, label: str) -> dict | list:
     return parsed
 
 
-def validate_limit(limit: int | None) -> int | None:
+def validate_limit(limit: int | None) -> None:
     """Validate that --limit is >= 1 if provided."""
     if limit is not None and limit < 1:
         sys.stderr.write(
@@ -121,4 +121,3 @@ def validate_limit(limit: int | None) -> int | None:
             + "\n"
         )
         raise SystemExit(ExitCode.BAD_ARGS)
-    return limit
