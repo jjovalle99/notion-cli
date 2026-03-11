@@ -9,6 +9,10 @@ from notion_cli.options import timeout_option, token_option
 from notion_cli.output import ExitCode, format_json
 from notion_cli.parsing import extract_id, read_content
 
+_READ_ONLY_TYPES = frozenset(
+    {"formula", "rollup", "created_time", "last_edited_time", "created_by", "last_edited_by"}
+)
+
 page_app = typer.Typer(
     name="page",
     help=(
@@ -301,17 +305,6 @@ async def duplicate(
     """
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
-
-    _READ_ONLY_TYPES = frozenset(
-        {
-            "formula",
-            "rollup",
-            "created_time",
-            "last_edited_time",
-            "created_by",
-            "last_edited_by",
-        }
-    )
 
     from notion_client import AsyncClient
 
