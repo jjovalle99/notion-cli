@@ -19,7 +19,7 @@ notion = "notion_cli.cli:app"
 [dependency-groups]
 dev = [
     "pytest>=8",
-    "ruff>=0.9",
+    "ruff>=0.15",
     "pre-commit>=4",
     "pytest-cov>=7.0.0",
     "ty>=0.0.21",
