@@ -15,3 +15,6 @@ wheels/
 # Coverage
 .coverage
 coverage.xml
+
+# Build-time injected secrets
+src/notion_cli/_oauth_secret.py
