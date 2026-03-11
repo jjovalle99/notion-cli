@@ -16,9 +16,21 @@ uv tool install notion-cli
 pip install notion-cli
 ```
 
-## Setup
+## Authentication
 
-Get a Notion API token from https://www.notion.so/my-integrations and export it:
+### Option 1: OAuth (recommended)
+
+```bash
+notion auth login     # opens browser, stores token locally
+notion auth status    # check current auth
+notion auth logout    # revoke and delete token
+```
+
+When prompted, select all pages for full workspace access.
+
+### Option 2: API token
+
+Get a token from https://www.notion.so/my-integrations:
 
 ```bash
 export NOTION_API_KEY="secret_..."
@@ -29,6 +41,9 @@ Or pass it per command with `--token`.
 ## Commands
 
 ```
+notion auth login                  Authenticate via OAuth browser flow
+notion auth logout                 Revoke token and delete credentials
+notion auth status                 Show current authentication method
 notion search <query>              Search pages and databases by title
 notion page get <id>               Get page metadata (properties, parent, URL)
 notion page create                 Create a page with markdown content
@@ -64,10 +79,11 @@ Read page content as markdown:
 notion block get <page-id> --markdown
 ```
 
-Create a page with content:
+Create a page with markdown content:
 ```bash
 notion page create --parent <parent-id> --title "New Page" --content $'# Hello\nWorld'
 notion page create -p <parent-id> -t "Notes" -c @notes.md
+notion page create -p <parent-id> -t "Notes" -c -    # read from stdin
 ```
 
 Query a database with a filter:
@@ -92,7 +108,7 @@ Exit codes: 0=ok, 1=error, 2=bad args, 3=not found, 4=permission denied, 5=rate 
 ## Options available on all commands
 
 - `--token TEXT` Notion API token (defaults to `NOTION_API_KEY` env var)
-- `--timeout FLOAT` API request timeout in seconds
+- `--timeout FLOAT` Timeout per API request in seconds (paginated commands make multiple requests)
 - `--help` Show help for any command
 
 ## Development
@@ -103,6 +119,7 @@ cd notion-cli
 uv sync
 uv run pytest
 uv run ruff check src/ tests/
+uv run ty check src/
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details on adding features.
