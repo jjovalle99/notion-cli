@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 
@@ -18,8 +19,11 @@ def save_credentials(data: dict[str, str]) -> None:
     """Write credentials to disk with 0600 permissions."""
     path = _credentials_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data))
-    path.chmod(0o600)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, json.dumps(data).encode())
+    finally:
+        os.close(fd)
 
 
 def delete_credentials() -> bool:
@@ -27,5 +31,5 @@ def delete_credentials() -> bool:
     try:
         _credentials_path().unlink()
         return True
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError):
         return False
