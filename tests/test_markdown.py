@@ -40,6 +40,16 @@ class TestRichText:
         ]
         assert rich_text_to_md(rich_text) == "[click](https://example.com)"
 
+    def test_link_missing_url(self) -> None:
+        rich_text = [
+            {
+                "type": "text",
+                "text": {"content": "click", "link": {"type": "url"}},
+                "annotations": {},
+            }
+        ]
+        assert rich_text_to_md(rich_text) == "[click]()"
+
     def test_mixed(self) -> None:
         rich_text = [
             {"type": "text", "text": {"content": "normal "}, "annotations": {}},
