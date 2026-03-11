@@ -1,8 +1,8 @@
-# notion-cli
+# notionctl
 
 [![CI](https://github.com/jjovalle99/notion-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/jjovalle99/notion-cli/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/jjovalle99/notion-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/jjovalle99/notion-cli)
-[![PyPI version](https://img.shields.io/pypi/v/notion-cli)](https://pypi.org/project/notion-cli/)
+[![PyPI version](https://img.shields.io/pypi/v/notionctl)](https://pypi.org/project/notionctl/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
@@ -11,9 +11,9 @@ Agent-friendly CLI for the Notion API. Outputs compact JSON to stdout, structure
 ## Install
 
 ```bash
-uv tool install notion-cli
+uv tool install notionctl
 # or
-pip install notion-cli
+pip install notionctl
 ```
 
 ## Authentication
