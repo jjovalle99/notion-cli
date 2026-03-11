@@ -1,4 +1,5 @@
 import json
+import pathlib
 from unittest.mock import AsyncMock
 
 from typer.testing import CliRunner
@@ -88,6 +89,88 @@ class TestPageCreate:
         assert result.exit_code == 0
         call_kwargs = mock_client.pages.create.call_args.kwargs
         assert call_kwargs["icon"] == {"type": "emoji", "emoji": "📝"}
+
+
+class TestPageCreateFileAndStdin:
+    def test_create_with_at_file(
+        self, runner: CliRunner, mock_client: AsyncMock, tmp_path: pathlib.Path
+    ) -> None:
+        md_file = tmp_path / "notes.md"
+        md_file.write_text("# Title\nBody text")
+        mock_client.pages.create.return_value = MOCK_PAGE
+
+        result = runner.invoke(
+            app,
+            [
+                "page",
+                "create",
+                "--parent",
+                PARENT_ID,
+                "--title",
+                "Notes",
+                "--content",
+                f"@{md_file}",
+            ],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.pages.create.call_args.kwargs
+        assert call_kwargs["content"] == "# Title\nBody text"
+
+    def test_create_with_stdin(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.create.return_value = MOCK_PAGE
+
+        result = runner.invoke(
+            app,
+            ["page", "create", "--parent", PARENT_ID, "--title", "Notes", "--content", "-"],
+            input="stdin content",
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.pages.create.call_args.kwargs
+        assert call_kwargs["content"] == "stdin content"
+
+
+class TestPageCreateParentType:
+    def test_create_with_database_parent(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.create.return_value = MOCK_PAGE
+
+        result = runner.invoke(
+            app,
+            [
+                "page",
+                "create",
+                "--parent",
+                PARENT_ID,
+                "--title",
+                "Row",
+                "--parent-type",
+                "database",
+            ],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.pages.create.call_args.kwargs
+        assert "database_id" in call_kwargs["parent"]
+        assert "page_id" not in call_kwargs["parent"]
+
+    def test_create_defaults_to_page_parent(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.pages.create.return_value = MOCK_PAGE
+
+        result = runner.invoke(
+            app,
+            ["page", "create", "--parent", PARENT_ID, "--title", "Page"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.pages.create.call_args.kwargs
+        assert "page_id" in call_kwargs["parent"]
 
 
 class TestPageUpdate:
@@ -201,3 +284,40 @@ class TestPageDuplicate:
         assert result.exit_code == 0
         mock_client.pages.retrieve.assert_called_once()
         mock_client.pages.create.assert_called_once()
+
+    def test_duplicate_filters_read_only_properties(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.pages.retrieve.return_value = {
+            **MOCK_PAGE,
+            "parent": {"page_id": PARENT_ID},
+            "icon": None,
+            "cover": None,
+            "properties": {
+                "title": {"type": "title", "title": [{"plain_text": "Test"}]},
+                "Status": {"type": "select", "select": {"name": "Done"}},
+                "Created": {"type": "created_time", "created_time": "2026-01-01"},
+                "Edited": {"type": "last_edited_time", "last_edited_time": "2026-01-02"},
+                "Author": {"type": "created_by", "created_by": {}},
+                "Editor": {"type": "last_edited_by", "last_edited_by": {}},
+                "Calc": {"type": "formula", "formula": {"number": 42}},
+                "Roll": {"type": "rollup", "rollup": {"number": 10}},
+            },
+        }
+        mock_client.pages.create.return_value = {**MOCK_PAGE, "id": "new-page-id"}
+
+        result = runner.invoke(
+            app, ["page", "duplicate", PAGE_ID], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        create_kwargs = mock_client.pages.create.call_args.kwargs
+        props = create_kwargs["properties"]
+        assert "title" in props
+        assert "Status" in props
+        assert "Created" not in props
+        assert "Edited" not in props
+        assert "Author" not in props
+        assert "Editor" not in props
+        assert "Calc" not in props
+        assert "Roll" not in props

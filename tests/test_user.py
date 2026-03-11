@@ -24,6 +24,22 @@ class TestUserList:
         data = json.loads(result.stdout)
         assert len(data["results"]) == 2
 
+    def test_list_with_limit(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.users.list.return_value = {
+            "results": [MOCK_USER, MOCK_BOT, {**MOCK_USER, "id": "extra"}],
+            "has_more": False,
+        }
+
+        result = runner.invoke(
+            app, ["user", "list", "--limit", "2"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["results"]) == 2
+        call_kwargs = mock_client.users.list.call_args.kwargs
+        assert call_kwargs["page_size"] == 2
+
     def test_list_paginates(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         page1 = {"results": [MOCK_USER], "has_more": True, "next_cursor": "cursor-abc"}
         page2 = {"results": [MOCK_BOT], "has_more": False}
