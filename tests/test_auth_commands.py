@@ -10,6 +10,16 @@ from notion_cli.commands.auth import auth_app
 # ---------------------------------------------------------------------------
 # login
 # ---------------------------------------------------------------------------
+class TestLoginMissingSecret:
+    @patch("notion_cli.commands.auth.CLIENT_SECRET", "")
+    def test_missing_secret_exits_with_error(self, runner: CliRunner) -> None:
+        result = runner.invoke(auth_app, ["login"])
+        assert result.exit_code != 0
+        out = json.loads(result.stderr.strip())
+        assert out["error_type"] == "missing_secret"
+
+
+@patch("notion_cli.commands.auth.CLIENT_SECRET", "test_secret")
 class TestLogin:
     @patch("notion_cli.commands.auth.save_credentials")
     @patch("notion_client.Client")
