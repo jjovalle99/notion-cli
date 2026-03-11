@@ -10,6 +10,7 @@ from notion_cli.commands.auth import auth_app
 # ---------------------------------------------------------------------------
 # login
 # ---------------------------------------------------------------------------
+@patch("notion_cli.commands.auth.CLIENT_SECRET", "test_secret")
 class TestLogin:
     @patch("notion_cli.commands.auth.save_credentials")
     @patch("notion_client.Client")
