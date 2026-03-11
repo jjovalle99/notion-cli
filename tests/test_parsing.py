@@ -59,3 +59,73 @@ class TestReadContent:
 
         monkeypatch.setattr("sys.stdin", io.StringIO("stdin content"))
         assert read_content("-") == "stdin content"
+
+    def test_at_directory_raises(self, tmp_path: pathlib.Path) -> None:
+        with pytest.raises(SystemExit):
+            read_content(f"@{tmp_path}")
+
+    def test_at_binary_file_raises(self, tmp_path: pathlib.Path) -> None:
+        f = tmp_path / "binary.bin"
+        f.write_bytes(b"\x80\x81\x82\xff\xfe")
+        with pytest.raises(SystemExit):
+            read_content(f"@{f}")
+
+    def test_at_permission_denied_raises(self, tmp_path: pathlib.Path) -> None:
+        f = tmp_path / "secret.txt"
+        f.write_text("secret")
+        f.chmod(0o000)
+        try:
+            with pytest.raises(SystemExit):
+                read_content(f"@{f}")
+        finally:
+            f.chmod(0o644)
+
+
+class TestParseJson:
+    def test_valid_dict(self) -> None:
+        from notion_cli.parsing import parse_json
+
+        result = parse_json('{"key": "value"}', expected_type=dict, label="--test")
+        assert result == {"key": "value"}
+
+    def test_valid_list(self) -> None:
+        from notion_cli.parsing import parse_json
+
+        result = parse_json("[1, 2, 3]", expected_type=list, label="--test")
+        assert result == [1, 2, 3]
+
+    def test_invalid_json_raises(self) -> None:
+        from notion_cli.parsing import parse_json
+
+        with pytest.raises(SystemExit):
+            parse_json("{bad}", expected_type=dict, label="--test")
+
+    def test_wrong_type_raises(self) -> None:
+        from notion_cli.parsing import parse_json
+
+        with pytest.raises(SystemExit):
+            parse_json('["array"]', expected_type=dict, label="--test")
+
+
+class TestValidateLimit:
+    def test_valid_limit(self) -> None:
+        from notion_cli.parsing import validate_limit
+
+        assert validate_limit(5) == 5
+
+    def test_none_passes(self) -> None:
+        from notion_cli.parsing import validate_limit
+
+        assert validate_limit(None) is None
+
+    def test_zero_raises(self) -> None:
+        from notion_cli.parsing import validate_limit
+
+        with pytest.raises(SystemExit):
+            validate_limit(0)
+
+    def test_negative_raises(self) -> None:
+        from notion_cli.parsing import validate_limit
+
+        with pytest.raises(SystemExit):
+            validate_limit(-1)

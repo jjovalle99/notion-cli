@@ -88,6 +88,36 @@ class TestUnexpectedError:
         assert "Connection refused" in error["message"]
 
 
+class TestRestrictedResourceError:
+    def test_restricted_resource_returns_permission_exit_code(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.search.side_effect = _make_api_error(
+            "restricted_resource", 403, "Resource is restricted"
+        )
+
+        result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "secret"})
+
+        assert result.exit_code == 4
+        error = json.loads(result.output)
+        assert error["error_type"] == "restricted_resource"
+
+
+class TestRequestTimeoutError:
+    def test_sdk_timeout_returns_json_error(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        from notion_client.errors import RequestTimeoutError
+
+        mock_client.search.side_effect = RequestTimeoutError()
+
+        result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "secret"})
+
+        assert result.exit_code == 1
+        error = json.loads(result.output)
+        assert error["error_type"] == "timeout"
+
+
 class TestBadJsonInput:
     def test_malformed_filter_returns_json_error(
         self, runner: CliRunner, mock_client: AsyncMock
@@ -98,7 +128,104 @@ class TestBadJsonInput:
             env={"NOTION_API_KEY": "secret"},
         )
 
-        assert result.exit_code == 1
+        assert result.exit_code == 2
         error = json.loads(result.output)
-        assert error["error_type"] == "unexpected"
-        assert "JSONDecodeError" in error.get("suggestion", "")
+        assert error["error_type"] == "invalid_json"
+
+    def test_malformed_properties_returns_json_error(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["page", "update", "aabbccdd-1122-3344-5566-778899001122", "--properties", "nope"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.output)
+        assert error["error_type"] == "invalid_json"
+
+    def test_wrong_json_type_returns_error(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        result = runner.invoke(
+            app,
+            [
+                "page",
+                "update",
+                "aabbccdd-1122-3344-5566-778899001122",
+                "--properties",
+                '["array"]',
+            ],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.output)
+        assert error["error_type"] == "invalid_json"
+        assert "object" in error["message"]
+
+    def test_children_dict_instead_of_list_returns_error(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        result = runner.invoke(
+            app,
+            [
+                "block",
+                "append",
+                "aabbccdd-1122-3344-5566-778899001122",
+                "--children",
+                '{"key": "value"}',
+            ],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.output)
+        assert error["error_type"] == "invalid_json"
+        assert "array" in error["message"]
+
+
+class TestVersionFlag:
+    def test_version_flag(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["--version"])
+
+        assert result.exit_code == 0
+        assert "notion-cli" in result.output
+
+
+class TestLimitValidation:
+    def test_limit_zero_returns_bad_args(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["search", "test", "--limit", "0"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.output)
+        assert error["error_type"] == "invalid_args"
+
+    def test_limit_negative_returns_bad_args(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["db", "query", "aabbccdd-1122-3344-5566-778899001122", "--limit", "-5"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.output)
+        assert error["error_type"] == "invalid_args"
+
+    def test_user_list_limit_zero_returns_bad_args(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["user", "list", "--limit", "0"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2

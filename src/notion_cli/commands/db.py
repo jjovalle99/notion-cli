@@ -1,4 +1,3 @@
-import json
 from typing import Annotated
 
 import typer
@@ -103,14 +102,17 @@ async def query(
         notion db query abc123 --filter '{"property": "Status", "select": {"equals": "Done"}}'
         notion db query abc123 --sort '[{"property": "Date", "direction": "descending"}]'
     """
+    from notion_cli.parsing import parse_json, validate_limit
+
     resolved_token = resolve_token(token=token)
     did = extract_id(db_id)
+    validate_limit(limit)
 
     kwargs: dict[str, object] = {}
     if filter is not None:
-        kwargs["filter"] = json.loads(filter)
+        kwargs["filter"] = parse_json(filter, expected_type=dict, label="--filter")
     if sort is not None:
-        kwargs["sorts"] = json.loads(sort)
+        kwargs["sorts"] = parse_json(sort, expected_type=list, label="--sort")
     if limit is not None:
         kwargs["page_size"] = min(limit, 100)
 
@@ -119,7 +121,7 @@ async def query(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.data_sources.query(did, **kwargs), timeout)
-        all_results.extend(result["results"])
+        all_results.extend(result.get("results", []))
 
         while (
             result.get("has_more")
@@ -190,7 +192,9 @@ async def create(
     }
 
     if properties is not None:
-        parsed_props = json.loads(properties)
+        from notion_cli.parsing import parse_json
+
+        parsed_props = parse_json(properties, expected_type=dict, label="--properties")
         kwargs["properties"] = {**kwargs["properties"], **parsed_props}  # type: ignore[arg-type]
 
     from notion_client import AsyncClient
@@ -240,7 +244,9 @@ async def update(
     if title is not None:
         kwargs["title"] = [{"text": {"content": title}}]
     if properties is not None:
-        kwargs["properties"] = json.loads(properties)
+        from notion_cli.parsing import parse_json
+
+        kwargs["properties"] = parse_json(properties, expected_type=dict, label="--properties")
 
     from notion_client import AsyncClient
 

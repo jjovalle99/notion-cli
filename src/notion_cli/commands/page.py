@@ -1,6 +1,6 @@
-import json
 from typing import Annotated
 
+import click
 import typer
 
 from notion_cli._async import await_with_timeout, run_async
@@ -91,6 +91,14 @@ async def create(
             help="Page icon as an emoji. Example: '📝'.",
         ),
     ] = None,
+    parent_type: Annotated[
+        str,
+        typer.Option(
+            "--parent-type",
+            help="Parent type: 'page' (default) or 'database'.",
+            click_type=click.Choice(["page", "database"]),
+        ),
+    ] = "page",
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -99,16 +107,21 @@ async def create(
     Content is provided as Notion-flavored Markdown via --content.
     The page is created with a title property and optional body.
 
+    When creating a row in a database, use --parent-type database.
+
     Examples:
         notion page create --parent abc123 --title "New Page"
         notion page create -p abc123 -t "Notes" -c "# Summary\\nKey points here"
         notion page create -p abc123 -t "Notes" -c @notes.md
+        notion page create -p db123 -t "Row" --parent-type database
     """
+
     resolved_token = resolve_token(token=token)
     parent_id = extract_id(parent)
 
+    parent_key = f"{parent_type}_id"
     kwargs: dict[str, object] = {
-        "parent": {"page_id": parent_id},
+        "parent": {parent_key: parent_id},
         "properties": {"title": {"title": [{"text": {"content": title}}]}},
     }
 
@@ -189,7 +202,9 @@ async def update(
     kwargs: dict[str, object] = {"page_id": pid}
     props: dict[str, object] = {}
     if properties is not None:
-        parsed_props = json.loads(properties)
+        from notion_cli.parsing import parse_json
+
+        parsed_props = parse_json(properties, expected_type=dict, label="--properties")
         if title is not None and "title" in parsed_props:
             from notion_cli.output import format_error
 
@@ -284,13 +299,29 @@ async def duplicate(
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
 
+    _READ_ONLY_TYPES = frozenset(
+        {
+            "formula",
+            "rollup",
+            "created_time",
+            "last_edited_time",
+            "created_by",
+            "last_edited_by",
+        }
+    )
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         original = await await_with_timeout(client.pages.retrieve(pid), timeout)
+        writable_props = {
+            k: v
+            for k, v in original["properties"].items()
+            if v.get("type") not in _READ_ONLY_TYPES
+        }
         create_kwargs: dict[str, object] = {
             "parent": original["parent"],
-            "properties": original["properties"],
+            "properties": writable_props,
         }
         if original.get("icon") is not None:
             create_kwargs["icon"] = original["icon"]

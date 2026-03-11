@@ -40,7 +40,10 @@ async def list_users(
         notion user list
         notion user list --limit 10
     """
+    from notion_cli.parsing import validate_limit
+
     resolved_token = resolve_token(token=token)
+    validate_limit(limit)
     kwargs: dict[str, object] = {}
     if limit is not None:
         kwargs["page_size"] = min(limit, 100)
@@ -50,7 +53,7 @@ async def list_users(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.users.list(**kwargs), timeout)
-        all_results.extend(result["results"])
+        all_results.extend(result.get("results", []))
 
         while (
             result.get("has_more")

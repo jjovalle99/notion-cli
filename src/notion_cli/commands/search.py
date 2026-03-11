@@ -50,7 +50,10 @@ async def search(
         notion search "Q1 roadmap" --type page
         notion search "projects" --limit 10
     """
+    from notion_cli.parsing import validate_limit
+
     resolved_token = resolve_token(token=token)
+    validate_limit(limit)
     kwargs: dict[str, object] = {"query": query}
     if type is not None:
         kwargs["filter"] = {"property": "object", "value": type}
@@ -62,7 +65,7 @@ async def search(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.search(**kwargs), timeout)
-        all_results.extend(result["results"])
+        all_results.extend(result.get("results", []))
 
         while (
             result.get("has_more")

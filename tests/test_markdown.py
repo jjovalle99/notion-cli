@@ -221,3 +221,96 @@ class TestBlocks:
             },
         ]
         assert blocks_to_markdown(blocks) == "# Title\n\nBody text.\n"
+
+    def test_image(self) -> None:
+        blocks = [
+            {
+                "type": "image",
+                "image": {"file": {"url": "https://example.com/img.png"}, "caption": []},
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "![](https://example.com/img.png)\n"
+
+    def test_image_with_caption(self) -> None:
+        blocks = [
+            {
+                "type": "image",
+                "image": {
+                    "file": {"url": "https://example.com/img.png"},
+                    "caption": [
+                        {"type": "text", "text": {"content": "A photo"}, "annotations": {}}
+                    ],
+                },
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "![A photo](https://example.com/img.png)\n"
+
+    def test_image_external(self) -> None:
+        blocks = [
+            {
+                "type": "image",
+                "image": {"external": {"url": "https://cdn.example.com/pic.jpg"}, "caption": []},
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "![](https://cdn.example.com/pic.jpg)\n"
+
+    def test_bookmark(self) -> None:
+        blocks = [{"type": "bookmark", "bookmark": {"url": "https://example.com", "caption": []}}]
+        assert blocks_to_markdown(blocks) == "[https://example.com](https://example.com)\n"
+
+    def test_bookmark_with_caption(self) -> None:
+        blocks = [
+            {
+                "type": "bookmark",
+                "bookmark": {
+                    "url": "https://example.com",
+                    "caption": [
+                        {"type": "text", "text": {"content": "My link"}, "annotations": {}}
+                    ],
+                },
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "[My link](https://example.com)\n"
+
+    def test_callout(self) -> None:
+        blocks = [
+            {
+                "type": "callout",
+                "callout": {
+                    "icon": {"emoji": "💡"},
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "Note"}, "annotations": {}}
+                    ],
+                },
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "> 💡 Note\n"
+
+    def test_equation_block(self) -> None:
+        blocks = [{"type": "equation", "equation": {"expression": "x^2 + y^2 = z^2"}}]
+        assert blocks_to_markdown(blocks) == "$$x^2 + y^2 = z^2$$\n"
+
+    def test_child_page(self) -> None:
+        blocks = [{"type": "child_page", "child_page": {"title": "Sub Page"}}]
+        assert blocks_to_markdown(blocks) == "[Sub Page](child_page)\n"
+
+    def test_child_database(self) -> None:
+        blocks = [{"type": "child_database", "child_database": {"title": "My DB"}}]
+        assert blocks_to_markdown(blocks) == "[My DB](child_database)\n"
+
+    def test_table_of_contents(self) -> None:
+        blocks = [{"type": "table_of_contents", "table_of_contents": {}}]
+        assert blocks_to_markdown(blocks) == "[Table of Contents]\n"
+
+    def test_unknown_block_type_renders_text(self) -> None:
+        blocks = [
+            {
+                "type": "toggle",
+                "toggle": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "toggled"}, "annotations": {}}
+                    ]
+                },
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "toggled\n"

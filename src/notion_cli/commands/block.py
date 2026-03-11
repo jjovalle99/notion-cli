@@ -61,7 +61,7 @@ async def get(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.blocks.children.list(bid), timeout)
-        all_results.extend(result["results"])
+        all_results.extend(result.get("results", []))
 
         while result.get("has_more") and result.get("next_cursor") and result.get("results"):
             result = await await_with_timeout(
@@ -113,12 +113,12 @@ async def append(
         notion block append abc123 --children '[{"type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": "Hello"}}]}}]'
         notion block append abc123 -c @blocks.json
     """
-    import json as json
+    from notion_cli.parsing import parse_json
 
     resolved_token = resolve_token(token=token)
     pid = extract_id(parent_id)
     raw = read_content(children)
-    block_list = json.loads(raw)
+    block_list = parse_json(raw, expected_type=list, label="--children")
 
     from notion_client import AsyncClient
 

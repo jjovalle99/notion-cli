@@ -73,3 +73,52 @@ def read_content(value: str) -> str:
             raise SystemExit(ExitCode.BAD_ARGS)
 
     return value
+
+
+def parse_json(value: str, *, expected_type: type, label: str) -> object:
+    """Parse a JSON string and validate its type.
+
+    Args:
+        value: Raw JSON string.
+        expected_type: Expected Python type (dict or list).
+        label: Option name for error messages (e.g. "--filter").
+    """
+    import json
+
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        sys.stderr.write(
+            format_error(
+                "invalid_json",
+                f"Invalid JSON for {label}: {exc.args[0]}",
+                suggestion="Check your JSON syntax.",
+            )
+            + "\n"
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
+    expected_name = "object" if expected_type is dict else "array"
+    if not isinstance(parsed, expected_type):
+        sys.stderr.write(
+            format_error(
+                "invalid_json",
+                f"{label} must be a JSON {expected_name}, got {type(parsed).__name__}.",
+            )
+            + "\n"
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
+    return parsed
+
+
+def validate_limit(limit: int | None) -> int | None:
+    """Validate that --limit is >= 1 if provided."""
+    if limit is not None and limit < 1:
+        sys.stderr.write(
+            format_error(
+                "invalid_args",
+                f"--limit must be >= 1, got {limit}.",
+            )
+            + "\n"
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
+    return limit

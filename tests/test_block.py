@@ -1,4 +1,5 @@
 import json
+import pathlib
 from unittest.mock import AsyncMock
 
 from typer.testing import CliRunner
@@ -94,3 +95,25 @@ class TestBlockAppend:
         call_kwargs = mock_client.blocks.children.append.call_args.kwargs
         assert "children" in call_kwargs
         assert len(call_kwargs["children"]) == 1
+
+    def test_append_from_file(
+        self,
+        runner: CliRunner,
+        mock_client: AsyncMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        json_file = tmp_path / "blocks.json"
+        json_file.write_text(
+            '[{"type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": "File"}}]}}]'
+        )
+        mock_client.blocks.children.append.return_value = MOCK_APPEND
+
+        result = runner.invoke(
+            app,
+            ["block", "append", PARENT_ID, "--children", f"@{json_file}"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.blocks.children.append.call_args.kwargs
+        assert call_kwargs["children"][0]["type"] == "paragraph"
