@@ -69,14 +69,14 @@ async def get(
             )
             all_results.extend(result.get("results", []))
 
+        envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
+
     if markdown:
         from notion_cli.markdown import blocks_to_markdown
 
         typer.echo(blocks_to_markdown(all_results), nl=False)
     else:
-        result["results"] = all_results
-        result["has_more"] = False
-        typer.echo(format_json(result))
+        typer.echo(format_json({**envelope, "results": all_results, "has_more": False}))
 
 
 @block_app.command()

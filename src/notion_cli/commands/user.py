@@ -61,16 +61,18 @@ async def list_users(
             and result.get("results")
             and (limit is None or len(all_results) < limit)
         ):
+            if limit is not None:
+                kwargs["page_size"] = min(limit - len(all_results), 100)
             result = await await_with_timeout(
                 client.users.list(start_cursor=result["next_cursor"], **kwargs), timeout
             )
             all_results.extend(result.get("results", []))
 
+        envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
+
     if limit is not None:
         all_results = all_results[:limit]
-    result["results"] = all_results
-    result["has_more"] = False
-    typer.echo(format_json(result))
+    typer.echo(format_json({**envelope, "results": all_results, "has_more": False}))
 
 
 @user_app.command()
