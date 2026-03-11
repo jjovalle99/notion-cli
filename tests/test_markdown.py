@@ -286,6 +286,20 @@ class TestBlocks:
         ]
         assert blocks_to_markdown(blocks) == "> 💡 Note\n"
 
+    def test_callout_null_icon(self) -> None:
+        blocks = [
+            {
+                "type": "callout",
+                "callout": {
+                    "icon": None,
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "Note"}, "annotations": {}}
+                    ],
+                },
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "> Note\n"
+
     def test_equation_block(self) -> None:
         blocks = [{"type": "equation", "equation": {"expression": "x^2 + y^2 = z^2"}}]
         assert blocks_to_markdown(blocks) == "$$x^2 + y^2 = z^2$$\n"

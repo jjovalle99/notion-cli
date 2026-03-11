@@ -82,7 +82,7 @@ def _block_to_md(block: dict[str, Any], number: int) -> str:
         return f"[{caption or url}]({url})"
 
     if block_type == "callout":
-        icon = data.get("icon", {}).get("emoji", "")
+        icon = (data.get("icon") or {}).get("emoji", "")
         parts = [p for p in [icon, text] if p]
         return f"> {' '.join(parts)}" if parts else ">"
 
