@@ -11,3 +11,7 @@ wheels/
 
 # Environment
 .env
+
+# Coverage
+.coverage
+coverage.xml
