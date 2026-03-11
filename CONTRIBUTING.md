@@ -164,3 +164,19 @@ Follow TDD: write the failing test first, then implement the minimum code to mak
 - `ruff` for linting, `ty` for type checking (both configured in pyproject.toml)
 - No classes unless truly needed, prefer functions
 - No docstrings on modules, only on public functions that need explanation
+
+## Pre-commit and CI
+
+Pre-commit hooks run `ruff check --fix` and `ruff format` automatically on commit. Install with:
+
+```bash
+uv run pre-commit install
+```
+
+`ty` has no official pre-commit hook yet (tracked at [astral-sh/ty#269](https://github.com/astral-sh/ty/issues/269)). Run it manually before committing:
+
+```bash
+uv run ty check src/
+```
+
+CI enforces all three checks (ruff, ty, pytest). If pre-commit is skipped locally, CI catches it.
