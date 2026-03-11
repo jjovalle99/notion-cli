@@ -33,4 +33,11 @@ jobs:
         run: uv run ruff format --check src/ tests/
 
       - name: Test
-        run: uv run pytest --tb=short -q
+        run: uv run pytest --cov=src/notion_cli --cov-report=xml --tb=short -q
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.13'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
