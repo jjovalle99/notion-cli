@@ -1,7 +1,8 @@
 import typer
+from typer.models import OptionInfo
 
 
-def token_option() -> typer.Option:
+def token_option() -> OptionInfo:
     """Shared --token option for all commands."""
     return typer.Option(
         "--token",
@@ -9,7 +10,7 @@ def token_option() -> typer.Option:
     )
 
 
-def timeout_option() -> typer.Option:
+def timeout_option() -> OptionInfo:
     """Shared --timeout option for all commands."""
     return typer.Option(
         "--timeout",

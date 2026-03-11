@@ -75,7 +75,7 @@ def read_content(value: str) -> str:
     return value
 
 
-def parse_json(value: str, *, expected_type: type, label: str) -> object:
+def parse_json(value: str, *, expected_type: type, label: str) -> dict | list:
     """Parse a JSON string and validate its type.
 
     Args:

@@ -22,6 +22,7 @@ dev = [
     "ruff>=0.9",
     "pre-commit>=4",
     "pytest-cov>=7.0.0",
+    "ty>=0.0.21",
 ]
 
 [tool.pytest.ini_options]
@@ -33,6 +34,15 @@ line-length = 99
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "ANN"]
+
+# notion-client SDK lacks proper type stubs: AsyncClient.__aexit__ returns
+# wrong type, all methods return SyncAsync[Any] (= Any | Awaitable[Any])
+# which ty can't narrow, and subscript/attribute access on the union fails.
+[tool.ty.rules]
+invalid-context-manager = "ignore"
+invalid-argument-type = "ignore"
+not-subscriptable = "ignore"
+unresolved-attribute = "ignore"
 
 [build-system]
 requires = ["uv_build>=0.10.3,<0.11.0"]

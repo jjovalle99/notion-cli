@@ -25,7 +25,7 @@ auth_app = typer.Typer(
 class _OAuthCallbackHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
-        self.server.callback_params = parse_qs(parsed.query)  # type: ignore[attr-defined]
+        self.server.callback_params = parse_qs(parsed.query)
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
         self.end_headers()
@@ -81,11 +81,11 @@ def login(
         raise SystemExit(ExitCode.ERROR)
 
     server.timeout = 120
-    server.callback_params = {}  # type: ignore[attr-defined]
+    server.callback_params = {}
     server.handle_request()
     server.server_close()
 
-    params = server.callback_params  # type: ignore[attr-defined]
+    params = server.callback_params
 
     if not params:
         sys.stderr.write(
