@@ -73,6 +73,7 @@ app = typer.Typer(
         "or pass --token on any command."
     ),
     no_args_is_help=True,
+    add_completion=False,
 )
 
 
