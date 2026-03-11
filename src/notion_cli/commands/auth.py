@@ -81,8 +81,10 @@ def login(
 
     server.timeout = 120
     server.callback_params = {}
-    server.handle_request()
-    server.server_close()
+    try:
+        server.handle_request()
+    finally:
+        server.server_close()
 
     params = server.callback_params
 
