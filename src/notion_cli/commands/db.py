@@ -196,7 +196,7 @@ async def create(
         from notion_cli.parsing import parse_json
 
         parsed_props = parse_json(properties, expected_type=dict, label="--properties")
-        kwargs["properties"] = {**kwargs["properties"], **parsed_props}  # type: ignore[arg-type]
+        kwargs["properties"] = {**kwargs["properties"], **parsed_props}
 
     from notion_client import AsyncClient
 
