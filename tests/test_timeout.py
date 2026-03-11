@@ -17,7 +17,7 @@ def test_command_times_out_on_hung_api(runner: CliRunner, mock_client: AsyncMock
     )
 
     assert result.exit_code == 1
-    assert "timeout" in result.output.lower()
+    assert "timeout" in result.stderr.lower()
 
 
 def test_negative_timeout_gives_error(runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -26,7 +26,7 @@ def test_negative_timeout_gives_error(runner: CliRunner, mock_client: AsyncMock)
     )
 
     assert result.exit_code == 1
-    assert "must be positive" in result.output.lower()
+    assert "must be positive" in result.stderr.lower()
 
 
 def test_zero_timeout_gives_error(runner: CliRunner, mock_client: AsyncMock) -> None:

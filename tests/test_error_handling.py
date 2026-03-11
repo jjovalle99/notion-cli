@@ -26,7 +26,7 @@ class TestErrorCodeEnum:
         )
 
         assert result.exit_code == 3
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "object_not_found"
 
 
@@ -45,7 +45,7 @@ class TestNotFoundError:
         )
 
         assert result.exit_code == 3
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "object_not_found"
         assert "Could not find page" in error["message"]
 
@@ -59,7 +59,7 @@ class TestUnauthorizedError:
         result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "bad_token"})
 
         assert result.exit_code == 4
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "unauthorized"
 
 
@@ -72,7 +72,7 @@ class TestRateLimitedError:
         result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 5
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "rate_limited"
 
 
@@ -87,7 +87,7 @@ class TestGenericApiError:
         result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 1
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "internal_server_error"
 
 
@@ -100,7 +100,7 @@ class TestUnexpectedError:
         result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 1
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "unexpected"
         assert "Connection refused" in error["message"]
 
@@ -116,7 +116,7 @@ class TestRestrictedResourceError:
         result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 4
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "restricted_resource"
 
 
@@ -131,7 +131,7 @@ class TestRequestTimeoutError:
         result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "secret"})
 
         assert result.exit_code == 1
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "timeout"
 
 
@@ -146,7 +146,7 @@ class TestBadJsonInput:
         )
 
         assert result.exit_code == 2
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "invalid_json"
 
     def test_malformed_properties_returns_json_error(
@@ -159,7 +159,7 @@ class TestBadJsonInput:
         )
 
         assert result.exit_code == 2
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "invalid_json"
 
     def test_wrong_json_type_returns_error(
@@ -178,7 +178,7 @@ class TestBadJsonInput:
         )
 
         assert result.exit_code == 2
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "invalid_json"
         assert "object" in error["message"]
 
@@ -198,7 +198,7 @@ class TestBadJsonInput:
         )
 
         assert result.exit_code == 2
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "invalid_json"
         assert "array" in error["message"]
 
@@ -220,7 +220,7 @@ class TestLimitValidation:
         )
 
         assert result.exit_code == 2
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "invalid_args"
 
     def test_limit_negative_returns_bad_args(
@@ -233,7 +233,7 @@ class TestLimitValidation:
         )
 
         assert result.exit_code == 2
-        error = json.loads(result.output)
+        error = json.loads(result.stderr)
         assert error["error_type"] == "invalid_args"
 
     def test_user_list_limit_zero_returns_bad_args(
