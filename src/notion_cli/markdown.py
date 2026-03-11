@@ -1,5 +1,3 @@
-"""Convert Notion block arrays to Markdown text."""
-
 from typing import Any
 
 _HEADING_PREFIX = {"heading_1": "# ", "heading_2": "## ", "heading_3": "### "}
