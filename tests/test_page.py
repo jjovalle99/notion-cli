@@ -271,7 +271,27 @@ class TestPageMove:
 
         assert result.exit_code == 0
         call_kwargs = mock_client.pages.move.call_args.kwargs
-        assert "parent" in call_kwargs
+        assert call_kwargs["parent"] == {"page_id": NEW_PARENT_ID}
+
+    def test_move_extracts_ids_from_urls(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.move.return_value = MOCK_PAGE
+
+        result = runner.invoke(
+            app,
+            [
+                "page",
+                "move",
+                f"https://notion.so/{PAGE_ID.replace('-', '')}",
+                "--to",
+                f"https://notion.so/{NEW_PARENT_ID.replace('-', '')}",
+            ],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        call_kwargs = mock_client.pages.move.call_args.kwargs
+        assert call_kwargs["page_id"] == PAGE_ID
+        assert call_kwargs["parent"] == {"page_id": NEW_PARENT_ID}
 
 
 class TestPageDuplicate:
