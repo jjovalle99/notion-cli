@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Agent-friendly CLI for the Notion API. Structured JSON output, async, full MCP parity."
 readme = "README.md"
 authors = [
-    { name = "jjovalle99", email = "juan.ovalle@mistral.ai" }
+    { name = "jjovalle99" }
 ]
 requires-python = ">=3.12"
 license = {text = "MIT"}
