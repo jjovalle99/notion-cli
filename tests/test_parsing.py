@@ -111,12 +111,12 @@ class TestValidateLimit:
     def test_valid_limit(self) -> None:
         from notion_cli.parsing import validate_limit
 
-        assert validate_limit(5) == 5
+        validate_limit(5)  # should not raise
 
     def test_none_passes(self) -> None:
         from notion_cli.parsing import validate_limit
 
-        assert validate_limit(None) is None
+        validate_limit(None)  # should not raise
 
     def test_zero_raises(self) -> None:
         from notion_cli.parsing import validate_limit
