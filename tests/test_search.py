@@ -1,6 +1,7 @@
 import json
 from unittest.mock import AsyncMock
 
+import pytest
 from typer.testing import CliRunner
 
 from notion_cli.cli import app
@@ -46,7 +47,8 @@ def test_search_passes_query_to_api(runner: CliRunner, mock_client: AsyncMock) -
     assert call_kwargs.kwargs.get("query") == "my query"
 
 
-def test_search_without_token_fails(runner: CliRunner) -> None:
+def test_search_without_token_fails(runner: CliRunner, monkeypatch: "pytest.MonkeyPatch") -> None:
+    monkeypatch.setattr("notion_cli.auth.load_credentials", lambda: None)
     result = runner.invoke(app, ["search", "test"], env={})
     assert result.exit_code == 2
 
