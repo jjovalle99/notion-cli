@@ -48,9 +48,10 @@ def run_async[**P](fn: Callable[P, Coroutine[object, object, None]]) -> Callable
                 raise SystemExit(ExitCode.ERROR)
 
             if isinstance(exc, APIResponseError):
-                exit_code = _ERROR_CODE_MAP.get(str(exc.code), ExitCode.ERROR)
+                code_str = exc.code.value if hasattr(exc.code, "value") else str(exc.code)
+                exit_code = _ERROR_CODE_MAP.get(code_str, ExitCode.ERROR)
                 typer.echo(
-                    format_error(str(exc.code), str(exc), suggestion=f"HTTP {exc.status}"),
+                    format_error(code_str, str(exc), suggestion=f"HTTP {exc.status}"),
                     err=True,
                 )
                 raise SystemExit(exit_code)
