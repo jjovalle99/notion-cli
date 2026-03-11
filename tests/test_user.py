@@ -63,6 +63,20 @@ class TestUserGet:
         data = json.loads(result.stdout)
         assert data["name"] == "Test User"
 
+    def test_get_user_extracts_id_from_url(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.users.retrieve.return_value = MOCK_USER
+
+        result = runner.invoke(
+            app,
+            ["user", "get", "https://notion.so/aabbccdd112233445566778899001122"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        mock_client.users.retrieve.assert_called_once_with(USER_ID)
+
 
 class TestUserMe:
     def test_me(self, runner: CliRunner, mock_client: AsyncMock) -> None:

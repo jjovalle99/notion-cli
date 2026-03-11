@@ -6,6 +6,7 @@ from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import timeout_option, token_option
 from notion_cli.output import format_json
+from notion_cli.parsing import extract_id
 
 user_app = typer.Typer(
     name="user",
@@ -80,7 +81,7 @@ async def list_users(
 async def get(
     user_id: Annotated[
         str,
-        typer.Argument(help="User ID (UUID format)."),
+        typer.Argument(help="User ID or Notion URL."),
     ],
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -93,10 +94,11 @@ async def get(
         notion user get aabbccdd-1122-3344-5566-778899001122
     """
     resolved_token = resolve_token(token=token)
+    uid = extract_id(user_id)
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.users.retrieve(user_id), timeout)
+        result = await await_with_timeout(client.users.retrieve(uid), timeout)
     typer.echo(format_json(result))
 
 
