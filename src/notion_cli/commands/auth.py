@@ -12,7 +12,11 @@ from notion_cli.credentials import delete_credentials, load_credentials, save_cr
 from notion_cli.output import ExitCode, format_error, format_json
 
 CLIENT_ID = "320d872b-594c-81ce-bd3e-003786f0191c"
-CLIENT_SECRET = "***REDACTED***"
+
+try:
+    from notion_cli._oauth_secret import CLIENT_SECRET  # ty: ignore[unresolved-import]
+except ImportError:
+    CLIENT_SECRET = os.environ.get("NOTION_OAUTH_CLIENT_SECRET", "")
 
 auth_app = typer.Typer(
     name="auth",

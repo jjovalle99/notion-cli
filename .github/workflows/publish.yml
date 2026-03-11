@@ -20,6 +20,9 @@ jobs:
         with:
           version: "latest"
 
+      - name: Inject OAuth secret
+        run: echo "CLIENT_SECRET = \"${{ secrets.NOTION_OAUTH_CLIENT_SECRET }}\"" > src/notion_cli/_oauth_secret.py
+
       - name: Build distribution
         run: uv build
 
