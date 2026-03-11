@@ -6,8 +6,9 @@
 git clone https://github.com/jjovalle99/notion-cli.git
 cd notion-cli
 uv sync
-uv run pytest           # run tests
-uv run ruff check src/  # lint
+uv run pytest                  # run tests
+uv run ruff check src/ tests/  # lint
+uv run ty check src/           # type check
 ```
 
 ## Adding a new command
@@ -159,6 +160,6 @@ Follow TDD: write the failing test first, then implement the minimum code to mak
 
 - Python 3.12+, async-first
 - `uv` for dependency management
-- `ruff` for linting (configured in pyproject.toml)
+- `ruff` for linting, `ty` for type checking (both configured in pyproject.toml)
 - No classes unless truly needed, prefer functions
 - No docstrings on modules, only on public functions that need explanation
