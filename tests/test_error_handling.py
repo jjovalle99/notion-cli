@@ -1,16 +1,33 @@
 import json
 from unittest.mock import AsyncMock
 
-from notion_client.errors import APIResponseError
+from notion_client.errors import APIErrorCode, APIResponseError
 from typer.testing import CliRunner
 
 from notion_cli.cli import app
 
 
-def _make_api_error(code: str, status: int, message: str) -> APIResponseError:
+def _make_api_error(code: str | APIErrorCode, status: int, message: str) -> APIResponseError:
     return APIResponseError(
         code=code, status=status, message=message, headers={}, raw_body_text=""
     )
+
+
+class TestErrorCodeEnum:
+    def test_not_found_with_enum_code(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.retrieve.side_effect = _make_api_error(
+            APIErrorCode.ObjectNotFound, 404, "not found"
+        )
+
+        result = runner.invoke(
+            app,
+            ["page", "get", "aabbccdd-1122-3344-5566-778899001122"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 3
+        error = json.loads(result.output)
+        assert error["error_type"] == "object_not_found"
 
 
 class TestNotFoundError:
