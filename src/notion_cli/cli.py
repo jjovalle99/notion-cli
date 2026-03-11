@@ -13,6 +13,7 @@ _LAZY_GROUPS: dict[str, tuple[str, str]] = {
     "comment": ("notion_cli.commands.comment", "comment_app"),
     "user": ("notion_cli.commands.user", "user_app"),
     "team": ("notion_cli.commands.team", "team_app"),
+    "auth": ("notion_cli.commands.auth", "auth_app"),
 }
 
 _LAZY_COMMANDS: dict[str, tuple[str, str]] = {
@@ -68,7 +69,7 @@ app = typer.Typer(
         "Agent-friendly CLI for the Notion API.\n\n"
         "Every command outputs compact JSON to stdout by default. "
         "Errors are written as JSON to stderr.\n\n"
-        "Authentication: set NOTION_API_KEY environment variable "
+        "Authentication: run 'notion auth login', set NOTION_API_KEY env var, "
         "or pass --token on any command."
     ),
     no_args_is_help=True,

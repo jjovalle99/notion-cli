@@ -20,5 +20,24 @@ def test_resolve_token_explicit_overrides_env(monkeypatch: pytest.MonkeyPatch) -
 
 def test_resolve_token_missing_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NOTION_API_KEY", raising=False)
+    monkeypatch.setattr("notion_cli.auth.load_credentials", lambda: None)
     with pytest.raises(SystemExit):
         resolve_token(token=None)
+
+
+def test_resolve_token_from_stored_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NOTION_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "notion_cli.auth.load_credentials",
+        lambda: {"access_token": "ntn_stored"},
+    )
+    assert resolve_token(token=None) == "ntn_stored"
+
+
+def test_resolve_token_env_overrides_stored(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NOTION_API_KEY", "secret_env")
+    monkeypatch.setattr(
+        "notion_cli.auth.load_credentials",
+        lambda: {"access_token": "ntn_stored"},
+    )
+    assert resolve_token(token=None) == "secret_env"
