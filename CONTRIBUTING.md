@@ -62,6 +62,8 @@ Key conventions to follow:
 
 Every command function must be `async def` decorated with `@run_async`. This bridges Typer (sync) with the async Notion client. The decorator also handles all error formatting (API errors, timeouts, unexpected exceptions) so commands don't need try/except.
 
+**Exception:** `commands/auth.py` uses plain `def` (no `@run_async`) because the OAuth flow is synchronous — it opens a browser and waits for a local HTTP callback. If your command makes no async API calls, plain `def` is fine.
+
 ### Lazy imports inside function bodies
 
 `from notion_client import AsyncClient` goes inside the function body, not at the top of the file. This keeps CLI startup fast. When the user runs `notion --version` or `notion --help`, the Notion SDK and its HTTP dependencies are not loaded.
@@ -144,7 +146,7 @@ Each command creates its own `AsyncClient` inside an `async with` block. This is
 Tests use `pytest` with shared fixtures from `conftest.py`:
 
 - `runner` provides a `typer.testing.CliRunner`
-- `mock_client` provides an `AsyncMock` that patches `notion_client.AsyncClient`
+- `mock_client` provides an `AsyncMock` that patches `notion_client.AsyncClient`. This works because commands import `AsyncClient` inside the function body (lazy import). If you move the import to module level, the mock won't intercept it.
 
 ```python
 def test_your_command(runner: CliRunner, mock_client: AsyncMock) -> None:

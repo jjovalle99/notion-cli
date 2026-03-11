@@ -25,7 +25,7 @@ def test_negative_timeout_gives_error(runner: CliRunner, mock_client: AsyncMock)
         app, ["search", "test", "--timeout", "-1"], env={"NOTION_API_KEY": "secret"}
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "must be positive" in result.stderr.lower()
 
 
@@ -34,4 +34,5 @@ def test_zero_timeout_gives_error(runner: CliRunner, mock_client: AsyncMock) -> 
         app, ["search", "test", "--timeout", "0"], env={"NOTION_API_KEY": "secret"}
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
+    assert "must be positive" in result.stderr.lower()

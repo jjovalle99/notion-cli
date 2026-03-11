@@ -6,7 +6,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Notion CLI built for coding agents. Compact JSON to stdout, structured errors to stderr, meaningful exit codes. Works with Claude Code, Cursor, Aider — or standalone.
+Notion CLI built for coding agents. Compact JSON to stdout, structured errors to stderr, meaningful exit codes. Works with Claude Code, Codex, Mistral Vibe or standalone.
 
 ```bash
 # Agent reads a spec from Notion, implements it, writes results back

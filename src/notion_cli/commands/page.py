@@ -6,7 +6,7 @@ import typer
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import timeout_option, token_option
-from notion_cli.output import ExitCode, format_json
+from notion_cli.output import ExitCode, format_error, format_json
 from notion_cli.parsing import extract_id, read_content
 
 _READ_ONLY_TYPES = frozenset(
@@ -213,8 +213,6 @@ async def update(
 
         parsed_props = parse_json(properties, expected_type=dict, label="--properties")
         if title is not None and "title" in parsed_props:
-            from notion_cli.output import format_error
-
             typer.echo(
                 format_error(
                     "conflicting_args",

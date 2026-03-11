@@ -160,7 +160,11 @@ def login(
     if response.get("refresh_token"):
         cred_data["refresh_token"] = response["refresh_token"]
 
-    save_credentials(cred_data)
+    try:
+        save_credentials(cred_data)
+    except OSError as exc:
+        sys.stderr.write(format_error("write_error", f"Failed to save credentials: {exc}") + "\n")
+        raise SystemExit(ExitCode.ERROR)
     typer.echo(format_json({"status": "authenticated", **cred_data}))
 
 

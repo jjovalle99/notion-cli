@@ -177,7 +177,7 @@ async def create(
     """Create a new Notion database under a parent page.
 
     Creates a database with a title and optional properties schema.
-    A 'Name' title property is always included automatically by Notion.
+    A 'Name' title property is included by default.
 
     Examples:
         notion db create --parent abc123 --title "Task Board"
