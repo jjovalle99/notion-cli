@@ -6,6 +6,7 @@
 git clone https://github.com/jjovalle99/notion-cli.git
 cd notion-cli
 uv sync
+uv run pre-commit install      # install hooks
 uv run pytest                  # run tests
 uv run ruff check src/ tests/  # lint
 uv run ty check src/           # type check
