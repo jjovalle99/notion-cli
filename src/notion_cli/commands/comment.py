@@ -95,7 +95,7 @@ async def list_comments(
             result = await await_with_timeout(
                 client.comments.list(block_id=pid, start_cursor=result["next_cursor"]), timeout
             )
-            all_results.extend(result["results"])
+            all_results.extend(result.get("results", []))
 
     result["results"] = all_results
     result["has_more"] = False
