@@ -37,6 +37,12 @@ def run_async[**P](fn: Callable[P, Coroutine[object, object, None]]) -> Callable
         except TimeoutError:
             typer.echo(format_error("timeout", "API request timed out."), err=True)
             raise SystemExit(ExitCode.ERROR)
+        except ValueError as exc:
+            typer.echo(
+                format_error("invalid_args", str(exc)),
+                err=True,
+            )
+            raise SystemExit(ExitCode.BAD_ARGS)
         except Exception as exc:
             from notion_client.errors import APIResponseError, RequestTimeoutError
 
