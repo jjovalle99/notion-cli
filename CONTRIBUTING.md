@@ -75,19 +75,20 @@ Every API call must use `await_with_timeout(coroutine, timeout)` from `_async.py
 If the API endpoint is paginated (returns `has_more` and `next_cursor`), collect all pages:
 
 ```python
-all_results: list[dict[str, object]] = []
+all_results: list[object] = []
 async with AsyncClient(auth=resolved_token) as client:
     result = await await_with_timeout(client.some.list(...), timeout)
-    all_results.extend(result["results"])
+    all_results.extend(result.get("results", []))
 
     while result.get("has_more") and result.get("next_cursor") and result.get("results"):
         result = await await_with_timeout(
             client.some.list(..., start_cursor=result["next_cursor"]), timeout
         )
-        all_results.extend(result["results"])
+        all_results.extend(result.get("results", []))
 
-result["results"] = all_results
-result["has_more"] = False
+    envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
+
+typer.echo(format_json({**envelope, "results": all_results, "has_more": False}))
 ```
 
 The three guards (`has_more`, `next_cursor`, `results`) prevent infinite loops on malformed API responses.
