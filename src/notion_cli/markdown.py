@@ -22,7 +22,7 @@ def rich_text_to_md(rich_text: list[dict[str, Any]]) -> str:
             text = span.get("text", {}).get("content", "")
             link = span.get("text", {}).get("link")
             if link:
-                text = f"[{text}]({link['url']})"
+                text = f"[{text}]({link.get('url', '')})"
 
         annotations = span.get("annotations", {})
         if annotations.get("code"):
