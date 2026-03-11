@@ -85,7 +85,7 @@ async def query(
         typer.Option(
             "--limit",
             "-l",
-            help="Maximum number of results to return. Omit to return all.",
+            help="Maximum number of rows to return. All rows are buffered in memory; use --limit on large databases.",
         ),
     ] = None,
     token: Annotated[str | None, token_option()] = None,
