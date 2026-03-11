@@ -310,13 +310,14 @@ async def duplicate(
 
     async with AsyncClient(auth=resolved_token) as client:
         original = await await_with_timeout(client.pages.retrieve(pid), timeout)
+        props = original.get("properties") or {}
         writable_props = {
             k: v
-            for k, v in original["properties"].items()
-            if v.get("type") not in _READ_ONLY_TYPES
+            for k, v in props.items()
+            if isinstance(v, dict) and v.get("type") not in _READ_ONLY_TYPES
         }
         create_kwargs: dict[str, object] = {
-            "parent": original["parent"],
+            "parent": original.get("parent", {}),
             "properties": writable_props,
         }
         if original.get("icon") is not None:

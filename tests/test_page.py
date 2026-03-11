@@ -348,3 +348,19 @@ class TestPageDuplicate:
         assert "Editor" not in props
         assert "Calc" not in props
         assert "Roll" not in props
+
+    def test_duplicate_missing_properties(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.retrieve.return_value = {
+            "id": PAGE_ID,
+            "object": "page",
+            "parent": {"page_id": PARENT_ID},
+        }
+        mock_client.pages.create.return_value = {**MOCK_PAGE, "id": "new-page-id"}
+
+        result = runner.invoke(
+            app, ["page", "duplicate", PAGE_ID], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        create_kwargs = mock_client.pages.create.call_args.kwargs
+        assert create_kwargs["properties"] == {}
