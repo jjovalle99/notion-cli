@@ -7,11 +7,6 @@ from typer.testing import CliRunner
 from notion_cli.commands.auth import auth_app
 
 
-@pytest.fixture()
-def runner() -> CliRunner:
-    return CliRunner()
-
-
 # ---------------------------------------------------------------------------
 # login
 # ---------------------------------------------------------------------------
