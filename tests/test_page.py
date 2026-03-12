@@ -457,6 +457,44 @@ class TestPageDuplicate:
         assert error["error_type"] == "invalid_response"
         mock_client.blocks.children.append.assert_not_called()
 
+    def test_duplicate_with_content_archives_page_on_append_failure(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.pages.retrieve.return_value = {
+            **MOCK_PAGE,
+            "parent": {"page_id": PARENT_ID},
+            "icon": None,
+            "cover": None,
+        }
+        new_id = "new-page-id"
+        mock_client.pages.create.return_value = {**MOCK_PAGE, "id": new_id}
+        mock_client.blocks.children.list.return_value = {
+            "results": [
+                {
+                    "id": "b1",
+                    "type": "paragraph",
+                    "has_children": False,
+                    "paragraph": {"rich_text": []},
+                    "object": "block",
+                }
+            ],
+            "has_more": False,
+        }
+        mock_client.blocks.children.append.side_effect = RuntimeError("API failure")
+        mock_client.pages.update.return_value = {}
+
+        result = runner.invoke(
+            app,
+            ["page", "duplicate", PAGE_ID, "--with-content"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 1
+        mock_client.pages.update.assert_called_once_with(page_id=new_id, archived=True)
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "content_copy_failed"
+        assert "archived" in error["message"].lower()
+
     def test_duplicate_with_content_skips_synced_block(
         self, runner: CliRunner, mock_client: AsyncMock
     ) -> None:

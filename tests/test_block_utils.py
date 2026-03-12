@@ -229,3 +229,28 @@ class TestCleanBlock:
         assert "id" not in cleaned
         assert len(cleaned["children"]) == 1
         assert "id" not in cleaned["children"][0]
+
+    def test_filters_skip_types_from_nested_children(self) -> None:
+        from notion_cli._block_utils import SKIP_CONTENT_TYPES
+
+        block = {
+            "id": "parent",
+            "type": "toggle",
+            "toggle": {"rich_text": []},
+            "has_children": True,
+            "children": [
+                {
+                    "id": "c1",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": []},
+                    "has_children": False,
+                },
+                {"id": "c2", "type": "synced_block", "synced_block": {}, "has_children": True},
+                {"id": "c3", "type": "unsupported", "has_children": False},
+            ],
+        }
+
+        cleaned = clean_block(block, skip_types=SKIP_CONTENT_TYPES)
+
+        assert len(cleaned["children"]) == 1
+        assert cleaned["children"][0]["type"] == "paragraph"
