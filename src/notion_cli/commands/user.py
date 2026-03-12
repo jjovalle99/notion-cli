@@ -4,8 +4,8 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import timeout_option, token_option
-from notion_cli.output import format_json
+from notion_cli.options import fields_option, timeout_option, token_option
+from notion_cli.output import format_json, project_fields
 from notion_cli.parsing import extract_id
 
 user_app = typer.Typer(
@@ -30,6 +30,7 @@ async def list_users(
             help="Maximum number of users to return. Omit to return all.",
         ),
     ] = None,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -44,6 +45,7 @@ async def list_users(
     from notion_cli.parsing import validate_limit
 
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     validate_limit(limit)
     kwargs: dict[str, object] = {}
     if limit is not None:
@@ -73,7 +75,11 @@ async def list_users(
 
     if limit is not None:
         all_results = all_results[:limit]
-    typer.echo(format_json({**envelope, "results": all_results, "has_more": False}))
+    typer.echo(
+        format_json(
+            {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
+        )
+    )
 
 
 @user_app.command()
@@ -83,6 +89,7 @@ async def get(
         str,
         typer.Argument(help="User ID or Notion URL."),
     ],
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -94,17 +101,19 @@ async def get(
         notion user get aabbccdd-1122-3344-5566-778899001122
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     uid = extract_id(user_id)
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.users.retrieve(uid), timeout)
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
 
 
 @user_app.command()
 @run_async
 async def me(
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -117,8 +126,9 @@ async def me(
         notion user me
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.users.me(), timeout)
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))

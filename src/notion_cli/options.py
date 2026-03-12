@@ -16,3 +16,12 @@ def timeout_option() -> OptionInfo:
         "--timeout",
         help="Timeout per API request in seconds (each paginated fetch gets its own timeout). Omit for no timeout.",
     )
+
+
+def fields_option() -> OptionInfo:
+    """Shared --fields option for output projection."""
+    return typer.Option(
+        "--fields",
+        "-f",
+        help="Comma-separated list of fields to include in output.",
+    )

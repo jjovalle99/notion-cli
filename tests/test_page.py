@@ -40,6 +40,24 @@ class TestPageGet:
         assert result.exit_code == 0
         mock_client.pages.retrieve.assert_called_once_with("abc123de-f456-abc1-23de-f456abc123de")
 
+    def test_get_with_fields(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.retrieve.return_value = {
+            "id": PAGE_ID,
+            "object": "page",
+            "url": "https://notion.so/page",
+            "properties": {},
+        }
+
+        result = runner.invoke(
+            app,
+            ["page", "get", PAGE_ID, "--fields", "id,url"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data == {"id": PAGE_ID, "url": "https://notion.so/page"}
+
 
 class TestPageCreate:
     def test_create_with_title(self, runner: CliRunner, mock_client: AsyncMock) -> None:
