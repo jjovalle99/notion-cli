@@ -1,9 +1,9 @@
+from functools import partial
 from typing import Annotated
 
 import typer
 
-
-from notion_cli._async import await_with_timeout, run_async
+from notion_cli._async import await_with_timeout, paginate, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import fields_option, timeout_option, token_option
 from notion_cli.output import ExitCode, format_error, format_json, project_fields
@@ -109,9 +109,7 @@ async def query(
         notion db query abc123 --filter '{"property": "Status", "select": {"equals": "Done"}}'
         notion db query abc123 --sort '[{"property": "Date", "direction": "descending"}]'
     """
-    from functools import partial
 
-    from notion_cli._async import paginate
     from notion_cli.parsing import parse_json, validate_limit
 
     resolved_token = resolve_token(token=token)
