@@ -48,19 +48,34 @@ async def get(
             help="Maximum number of blocks to return. Omit to return all.",
         ),
     ] = None,
+    recursive: Annotated[
+        bool,
+        typer.Option(
+            "--recursive",
+            "-r",
+            help="Recursively fetch nested blocks (toggles, sub-lists, etc.).",
+        ),
+    ] = False,
+    depth: Annotated[
+        int,
+        typer.Option(
+            "--depth",
+            help="Maximum nesting depth when using --recursive. 1 = top level only.",
+        ),
+    ] = 5,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """List child blocks of a page or block.
 
     Returns raw JSON blocks by default. Use --markdown to convert the output
-    to readable Markdown text. If a child block has_children=true, call
-    this command again with that block's ID to recurse deeper.
+    to readable Markdown text. Use --recursive to include nested content.
 
     Examples:
         notion block get abc123
         notion block get abc123 --markdown
-        notion block get https://notion.so/My-Page-abc123 -m
+        notion block get abc123 --recursive --markdown
+        notion block get https://notion.so/My-Page-abc123 -r -m
     """
     from notion_cli.parsing import validate_limit
 
@@ -68,30 +83,21 @@ async def get(
     bid = extract_id(block_id)
     validate_limit(limit)
 
-    kwargs: dict[str, object] = {}
-    if limit is not None:
-        kwargs["page_size"] = min(limit, 100)
-
-    all_results: list[object] = []
     from notion_client import AsyncClient
 
+    all_results: list[dict[str, object]] = []
+    envelope: dict[str, object] = {}
+
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.blocks.children.list(bid, **kwargs), timeout)
-        all_results.extend(result.get("results") or [])
+        if recursive:
+            from notion_cli._block_utils import fetch_recursive
 
-        while (
-            result.get("has_more")
-            and result.get("next_cursor")
-            and result.get("results")
-            and (limit is None or len(all_results) < limit)
-        ):
-            kwargs["start_cursor"] = result["next_cursor"]
-            if limit is not None:
-                kwargs["page_size"] = min(limit - len(all_results), 100)
-            result = await await_with_timeout(client.blocks.children.list(bid, **kwargs), timeout)
-            all_results.extend(result.get("results") or [])
+            all_results = await fetch_recursive(client, bid, timeout, max_depth=depth)
+            envelope = {"object": "list", "type": "block"}
+        else:
+            from notion_cli._block_utils import fetch_children
 
-        envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
+            all_results, envelope = await fetch_children(client, bid, timeout, limit=limit)
 
     if limit is not None:
         all_results = all_results[:limit]
