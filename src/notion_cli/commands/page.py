@@ -60,7 +60,7 @@ async def get(
 @run_async
 async def create(
     parent: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--parent",
             "-p",
@@ -69,15 +69,15 @@ async def create(
                 "Example: 'abc123' or 'https://notion.so/Parent-abc123'."
             ),
         ),
-    ],
+    ] = None,
     title: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--title",
             "-t",
             help="Page title. Example: 'Meeting Notes 2026-03-10'.",
         ),
-    ],
+    ] = None,
     content: Annotated[
         str | None,
         typer.Option(
@@ -105,6 +105,17 @@ async def create(
             click_type=click.Choice(["page", "database"]),
         ),
     ] = "page",
+    stdin: Annotated[
+        bool,
+        typer.Option(
+            "--stdin",
+            help=(
+                "Read NDJSON from stdin. Each line: "
+                '{"parent": "id", "title": "...", "content": "...", "icon": "...", "parent_type": "page|database"}. '
+                "Only parent and title are required per line."
+            ),
+        ),
+    ] = False,
     dry_run: Annotated[bool, dry_run_option()] = False,
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
@@ -116,16 +127,66 @@ async def create(
     The page is created with a title property and optional body.
 
     When creating a row in a database, use --parent-type database.
+    Use --stdin to create multiple pages from NDJSON input.
 
     Examples:
         notion page create --parent abc123 --title "New Page"
         notion page create -p abc123 -t "Notes" -c "# Summary\\nKey points here"
         notion page create -p abc123 -t "Notes" -c @notes.md
         notion page create -p db123 -t "Row" --parent-type database
+        echo '{"parent":"abc","title":"A"}' | notion page create --stdin
     """
-
     resolved_token = resolve_token(token=token)
     fields_set = parse_fields(fields)
+
+    if stdin:
+        import sys
+
+        from notion_cli._batch import process_batch
+
+        from notion_client import AsyncClient
+
+        async def _create_one(item: dict[str, object]) -> dict[str, object]:
+            p = str(item.get("parent", ""))
+            t = str(item.get("title", ""))
+            if not p or not t:
+                msg = "Each line requires 'parent' and 'title' fields."
+                raise ValueError(msg)
+            pid = extract_id(p)
+            pt = str(item.get("parent_type", "page"))
+            if pt not in ("page", "database"):
+                msg = f"parent_type must be 'page' or 'database', got {pt!r}."
+                raise ValueError(msg)
+            kw: dict[str, object] = {
+                "parent": {f"{pt}_id": pid},
+                "properties": {"title": {"title": [{"text": {"content": t}}]}},
+            }
+            item_icon = item.get("icon")
+            if item_icon is not None:
+                kw["icon"] = {"type": "emoji", "emoji": item_icon}
+            item_content = item.get("content")
+            if item_content is not None:
+                kw["markdown"] = str(item_content)
+                return await await_with_timeout(
+                    client.request(path="pages", method="POST", body=kw), timeout
+                )
+            return await await_with_timeout(client.pages.create(**kw), timeout)
+
+        async with AsyncClient(auth=resolved_token, notion_version="2026-03-11") as client:
+            exit_code = await process_batch(
+                lines=sys.stdin,
+                handler=_create_one,
+                fields=fields_set,
+            )
+        raise SystemExit(exit_code)
+
+    if parent is None or title is None:
+        typer.echo(
+            format_error("missing_args", "--parent and --title are required (or use --stdin)."),
+            err=True,
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
+
     parent_id = extract_id(parent)
 
     parent_key = f"{parent_type}_id"
@@ -257,16 +318,23 @@ async def update(
 @run_async
 async def move(
     page_id: Annotated[
-        str,
+        str | None,
         typer.Argument(help="Page ID or Notion URL to move."),
-    ],
+    ] = None,
     to: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--to",
             help="New parent page ID or URL. Example: 'abc123' or a full Notion URL.",
         ),
-    ],
+    ] = None,
+    stdin: Annotated[
+        bool,
+        typer.Option(
+            "--stdin",
+            help=('Read NDJSON from stdin. Each line: {"page_id": "id", "to": "parent_id"}.'),
+        ),
+    ] = False,
     dry_run: Annotated[bool, dry_run_option()] = False,
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
@@ -275,14 +343,51 @@ async def move(
     """Move a Notion page to a different parent.
 
     Changes the parent of the specified page. The new parent must be a page
-    the integration has access to.
+    the integration has access to. Use --stdin to move multiple pages from
+    NDJSON input.
 
     Examples:
         notion page move abc123 --to def456
         notion page move abc123 --to https://notion.so/New-Parent-def456
+        echo '{"page_id":"abc","to":"def"}' | notion page move --stdin
     """
     resolved_token = resolve_token(token=token)
     fields_set = parse_fields(fields)
+
+    if stdin:
+        import sys
+
+        from notion_cli._batch import process_batch
+
+        from notion_client import AsyncClient
+
+        async def _move_one(item: dict[str, object]) -> dict[str, object]:
+            raw_pid = str(item.get("page_id", ""))
+            raw_to = str(item.get("to", ""))
+            if not raw_pid or not raw_to:
+                msg = "Each line requires 'page_id' and 'to' fields."
+                raise ValueError(msg)
+            pid = extract_id(raw_pid)
+            new_parent_id = extract_id(raw_to)
+            return await await_with_timeout(
+                client.pages.move(page_id=pid, parent={"page_id": new_parent_id}), timeout
+            )
+
+        async with AsyncClient(auth=resolved_token) as client:
+            exit_code = await process_batch(
+                lines=sys.stdin,
+                handler=_move_one,
+                fields=fields_set,
+            )
+        raise SystemExit(exit_code)
+
+    if page_id is None or to is None:
+        typer.echo(
+            format_error("missing_args", "PAGE_ID and --to are required (or use --stdin)."),
+            err=True,
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
+
     pid = extract_id(page_id)
     new_parent_id = extract_id(to)
     kwargs: dict[str, object] = {"page_id": pid, "parent": {"page_id": new_parent_id}}
