@@ -571,7 +571,9 @@ async def duplicate(
                     )
             except Exception:
                 try:
-                    await client.pages.update(page_id=new_page_id, archived=True)
+                    await await_with_timeout(
+                        client.pages.update(page_id=new_page_id, archived=True), timeout
+                    )
                     msg = f"Content copy failed; created page {new_page_id} has been archived."
                 except Exception:
                     msg = f"Content copy failed; created page {new_page_id} could not be archived — clean it up manually."

@@ -23,8 +23,8 @@ class TestLoginMissingSecret:
 class TestLogin:
     @patch("notion_cli.commands.auth.save_credentials")
     @patch("notion_client.Client")
-    @patch("notion_cli.commands.auth.HTTPServer")
-    @patch("notion_cli.commands.auth.webbrowser.open")
+    @patch("http.server.HTTPServer")
+    @patch("webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="fixed_state")
     def test_success(
         self,
@@ -37,9 +37,12 @@ class TestLogin:
     ) -> None:
         server = MagicMock()
         mock_server_cls.return_value = server
-        server.handle_request.side_effect = lambda: setattr(
-            server, "callback_params", {"code": ["abc"], "state": ["fixed_state"]}
-        )
+
+        def _set_callback() -> None:
+            server.callback_params = {"code": ["abc"], "state": ["fixed_state"]}
+            server.got_callback = True
+
+        server.handle_request.side_effect = _set_callback
 
         mock_client_cls.return_value.oauth.token.return_value = {
             "access_token": "ntn_tok",
@@ -53,13 +56,14 @@ class TestLogin:
         assert result.exit_code == 0
         out = json.loads(result.output.splitlines()[-1])
         assert out["status"] == "authenticated"
-        assert out["access_token"] == "ntn_tok"
+        assert "access_token" not in out
+        assert out["workspace_name"] == "Test WS"
         mock_save.assert_called_once()
         saved = mock_save.call_args[0][0]
         assert saved["access_token"] == "ntn_tok"
 
-    @patch("notion_cli.commands.auth.HTTPServer")
-    @patch("notion_cli.commands.auth.webbrowser.open")
+    @patch("http.server.HTTPServer")
+    @patch("webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="s")
     def test_port_in_use(
         self,
@@ -84,8 +88,8 @@ class TestLogin:
         out = json.loads(result.stderr.strip())
         assert out["error_type"] == "invalid_port"
 
-    @patch("notion_cli.commands.auth.HTTPServer")
-    @patch("notion_cli.commands.auth.webbrowser.open")
+    @patch("http.server.HTTPServer")
+    @patch("webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="s")
     def test_timeout(
         self,
@@ -100,8 +104,8 @@ class TestLogin:
         result = runner.invoke(auth_app, ["login"])
         assert result.exit_code != 0
 
-    @patch("notion_cli.commands.auth.HTTPServer")
-    @patch("notion_cli.commands.auth.webbrowser.open")
+    @patch("http.server.HTTPServer")
+    @patch("webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="s")
     def test_access_denied(
         self,
@@ -112,14 +116,17 @@ class TestLogin:
     ) -> None:
         server = MagicMock()
         mock_server_cls.return_value = server
-        server.handle_request.side_effect = lambda: setattr(
-            server, "callback_params", {"error": ["access_denied"]}
-        )
+
+        def _set_denied() -> None:
+            server.callback_params = {"error": ["access_denied"]}
+            server.got_callback = True
+
+        server.handle_request.side_effect = _set_denied
         result = runner.invoke(auth_app, ["login"])
         assert result.exit_code != 0
 
-    @patch("notion_cli.commands.auth.HTTPServer")
-    @patch("notion_cli.commands.auth.webbrowser.open")
+    @patch("http.server.HTTPServer")
+    @patch("webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="expected")
     def test_state_mismatch(
         self,
@@ -130,14 +137,17 @@ class TestLogin:
     ) -> None:
         server = MagicMock()
         mock_server_cls.return_value = server
-        server.handle_request.side_effect = lambda: setattr(
-            server, "callback_params", {"code": ["abc"], "state": ["wrong"]}
-        )
+
+        def _set_wrong_state() -> None:
+            server.callback_params = {"code": ["abc"], "state": ["wrong"]}
+            server.got_callback = True
+
+        server.handle_request.side_effect = _set_wrong_state
         result = runner.invoke(auth_app, ["login"])
         assert result.exit_code != 0
 
-    @patch("notion_cli.commands.auth.HTTPServer")
-    @patch("notion_cli.commands.auth.webbrowser.open")
+    @patch("http.server.HTTPServer")
+    @patch("webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="fixed_state")
     def test_missing_code_in_callback(
         self,
@@ -148,9 +158,12 @@ class TestLogin:
     ) -> None:
         server = MagicMock()
         mock_server_cls.return_value = server
-        server.handle_request.side_effect = lambda: setattr(
-            server, "callback_params", {"state": ["fixed_state"]}
-        )
+
+        def _set_no_code() -> None:
+            server.callback_params = {"state": ["fixed_state"]}
+            server.got_callback = True
+
+        server.handle_request.side_effect = _set_no_code
 
         result = runner.invoke(auth_app, ["login"])
         assert result.exit_code != 0
@@ -158,8 +171,8 @@ class TestLogin:
         assert out["error_type"] == "missing_code"
 
     @patch("notion_client.Client")
-    @patch("notion_cli.commands.auth.HTTPServer")
-    @patch("notion_cli.commands.auth.webbrowser.open")
+    @patch("http.server.HTTPServer")
+    @patch("webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="fixed_state")
     def test_missing_access_token(
         self,
@@ -171,9 +184,12 @@ class TestLogin:
     ) -> None:
         server = MagicMock()
         mock_server_cls.return_value = server
-        server.handle_request.side_effect = lambda: setattr(
-            server, "callback_params", {"code": ["abc"], "state": ["fixed_state"]}
-        )
+
+        def _set_callback() -> None:
+            server.callback_params = {"code": ["abc"], "state": ["fixed_state"]}
+            server.got_callback = True
+
+        server.handle_request.side_effect = _set_callback
         mock_client_cls.return_value.oauth.token.return_value = {"error": "invalid_grant"}
 
         result = runner.invoke(auth_app, ["login"])
@@ -183,8 +199,8 @@ class TestLogin:
 
     @patch("notion_cli.commands.auth.save_credentials")
     @patch("notion_client.Client")
-    @patch("notion_cli.commands.auth.HTTPServer")
-    @patch("notion_cli.commands.auth.webbrowser.open")
+    @patch("http.server.HTTPServer")
+    @patch("webbrowser.open")
     @patch("notion_cli.commands.auth.secrets.token_urlsafe", return_value="s")
     def test_custom_port(
         self,
@@ -197,9 +213,12 @@ class TestLogin:
     ) -> None:
         server = MagicMock()
         mock_server_cls.return_value = server
-        server.handle_request.side_effect = lambda: setattr(
-            server, "callback_params", {"code": ["c"], "state": ["s"]}
-        )
+
+        def _set_port_callback() -> None:
+            server.callback_params = {"code": ["c"], "state": ["s"]}
+            server.got_callback = True
+
+        server.handle_request.side_effect = _set_port_callback
         mock_client_cls.return_value.oauth.token.return_value = {
             "access_token": "t",
             "workspace_id": "",

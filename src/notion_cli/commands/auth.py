@@ -1,10 +1,7 @@
 import os
 import secrets
 import sys
-import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Annotated
-from urllib.parse import parse_qs, urlparse
 
 import typer
 
@@ -25,20 +22,31 @@ auth_app = typer.Typer(
 )
 
 
-class _OAuthCallbackHandler(BaseHTTPRequestHandler):
-    def do_GET(self) -> None:
-        parsed = urlparse(self.path)
-        self.server.callback_params = parse_qs(parsed.query)
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.end_headers()
-        self.wfile.write(
-            b"<html><body><h1>Authentication successful!</h1>"
-            b"<p>You can close this tab.</p></body></html>"
-        )
+def _make_callback_handler():  # noqa: ANN202
+    from http.server import BaseHTTPRequestHandler
+    from urllib.parse import parse_qs, urlparse
 
-    def log_message(self, format: str, *args: object) -> None:  # noqa: ANN002
-        pass  # suppress server logs
+    class _Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            parsed = urlparse(self.path)
+            if not parsed.path.startswith("/callback"):
+                self.send_response(204)
+                self.end_headers()
+                return
+            self.server.callback_params = parse_qs(parsed.query)
+            self.server.got_callback = True
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(
+                b"<html><body><h1>Authentication successful!</h1>"
+                b"<p>You can close this tab.</p></body></html>"
+            )
+
+        def log_message(self, format: str, *args: object) -> None:  # noqa: ANN002
+            pass
+
+    return _Handler
 
 
 @auth_app.command()
@@ -82,13 +90,17 @@ def login(
     typer.echo("Tip: select all pages when prompted for full workspace access.")
     typer.echo(f"If browser doesn't open, visit: {auth_url}")
 
+    import webbrowser
+
     try:
         webbrowser.open(auth_url)
     except Exception:
         pass  # URL already printed as fallback
 
+    from http.server import HTTPServer
+
     try:
-        server = HTTPServer(("localhost", port), _OAuthCallbackHandler)
+        server = HTTPServer(("localhost", port), _make_callback_handler())
     except OSError:
         sys.stderr.write(
             format_error(
@@ -100,10 +112,14 @@ def login(
         )
         raise SystemExit(ExitCode.ERROR)
 
-    server.timeout = 120
+    server.timeout = 30
     server.callback_params = {}
+    server.got_callback = False
     try:
-        server.handle_request()
+        for _ in range(4):
+            server.handle_request()
+            if server.got_callback:
+                break
     finally:
         server.server_close()
 
@@ -165,7 +181,13 @@ def login(
     except OSError as exc:
         sys.stderr.write(format_error("write_error", f"Failed to save credentials: {exc}") + "\n")
         raise SystemExit(ExitCode.ERROR)
-    typer.echo(format_json({"status": "authenticated", **cred_data}))
+    safe_output = {
+        "status": "authenticated",
+        "workspace_name": cred_data.get("workspace_name", ""),
+        "workspace_id": cred_data.get("workspace_id", ""),
+        "bot_id": cred_data.get("bot_id", ""),
+    }
+    typer.echo(format_json(safe_output))
 
 
 @auth_app.command()
