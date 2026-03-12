@@ -54,6 +54,27 @@ class TestCommentAdd:
 
         assert result.exit_code == 2
 
+    def test_add_empty_body_with_rich_text_is_conflict(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        result = runner.invoke(
+            app,
+            [
+                "comment",
+                "add",
+                PAGE_ID,
+                "--body",
+                "",
+                "--rich-text",
+                '[{"text": {"content": "x"}}]',
+            ],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "conflicting_args"
+
 
 class TestCommentReply:
     def test_reply_with_body(self, runner: CliRunner, mock_client: AsyncMock) -> None:
