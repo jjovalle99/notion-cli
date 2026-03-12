@@ -2,7 +2,17 @@ import pathlib
 
 import pytest
 
-from notion_cli.parsing import extract_id, read_content
+from notion_cli.parsing import extract_id, parse_fields, read_content
+
+
+class TestParseFields:
+    def test_strips_whitespace_around_field_names(self) -> None:
+        result = parse_fields("id, url, title")
+        assert result == {"id", "url", "title"}
+
+    def test_pure_whitespace_returns_none(self) -> None:
+        result = parse_fields("   ")
+        assert result is None
 
 
 class TestExtractId:

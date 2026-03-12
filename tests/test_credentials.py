@@ -46,6 +46,12 @@ class TestSaveCredentials:
         save_credentials({"access_token": "new"})
         assert json.loads(cred_path.read_text())["access_token"] == "new"
 
+    def test_atomic_write_roundtrips(self, cred_path: Path) -> None:
+        save_credentials({"access_token": "test123", "workspace_id": "w"})
+        loaded = load_credentials()
+        assert loaded is not None
+        assert loaded["access_token"] == "test123"
+
 
 class TestDeleteCredentials:
     def test_returns_true_when_file_exists(self, cred_path: Path) -> None:

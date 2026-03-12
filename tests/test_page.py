@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 from typer.testing import CliRunner
 
+from notion_client.errors import APIResponseError
 from notion_cli.cli import app
 
 PAGE_ID = "aabbccdd-1122-3344-5566-778899001122"
@@ -109,6 +110,59 @@ class TestPageGetFull:
         assert "page" in data
         assert "blocks" not in data
 
+    def test_full_handles_comments_403_gracefully(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+
+        mock_client.pages.retrieve.return_value = MOCK_PAGE
+        mock_client.blocks.children.list.return_value = {
+            "results": [{"id": "b1", "type": "paragraph", "has_children": False}],
+            "has_more": False,
+        }
+        mock_client.comments.list.side_effect = APIResponseError(
+            code="restricted_resource",
+            status=403,
+            message="forbidden",
+            headers={},
+            raw_body_text="",
+        )
+
+        result = runner.invoke(
+            app,
+            ["page", "get", PAGE_ID, "--full"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["page"]["id"] == PAGE_ID
+        assert len(data["blocks"]) == 1
+        assert data["comments"] == []
+
+    def test_full_blocks_api_error_propagates(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+
+        mock_client.pages.retrieve.return_value = {"id": PAGE_ID, "object": "page"}
+        mock_client.blocks.children.list.side_effect = APIResponseError(
+            code="object_not_found",
+            status=404,
+            message="not found",
+            headers={},
+            raw_body_text="",
+        )
+        mock_client.comments.list.return_value = {"results": [], "has_more": False}
+
+        result = runner.invoke(
+            app,
+            ["page", "get", PAGE_ID, "--full"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 3
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "object_not_found"
+
 
 class TestPageCreate:
     def test_create_with_title(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -166,6 +220,21 @@ class TestPageCreate:
         call_kwargs = mock_client.pages.create.call_args.kwargs
         assert call_kwargs["icon"] == {"type": "emoji", "emoji": "📝"}
 
+    def test_create_without_content_uses_pages_create(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.pages.create.return_value = MOCK_PAGE
+
+        result = runner.invoke(
+            app,
+            ["page", "create", "--parent", PARENT_ID, "--title", "No content"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        mock_client.pages.create.assert_called_once()
+        mock_client.request.assert_not_called()
+
 
 class TestPageCreateDryRun:
     def test_dry_run_outputs_payload_and_skips_api(
@@ -182,6 +251,20 @@ class TestPageCreateDryRun:
         assert data["dry_run"] is True
         assert data["command"] == "page create"
         assert "parent" in data["payload"]
+        mock_client.pages.create.assert_not_called()
+
+    def test_stdin_dry_run_skips_api(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        ndjson = f'{{"parent": "{PARENT_ID}", "title": "A"}}\n'
+        result = runner.invoke(
+            app,
+            ["page", "create", "--stdin", "--dry-run"],
+            input=ndjson,
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
         mock_client.pages.create.assert_not_called()
 
 
@@ -345,6 +428,29 @@ class TestPageUpdate:
         call_kwargs = mock_client.pages.update.call_args.kwargs
         assert call_kwargs["icon"] == {"type": "emoji", "emoji": "🔥"}
 
+    def test_no_flags_rejected(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["page", "update", PAGE_ID],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "missing_args"
+        mock_client.pages.update.assert_not_called()
+
+    def test_dry_run_skips_api(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["page", "update", PAGE_ID, "--title", "X", "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        mock_client.pages.update.assert_not_called()
+
 
 class TestPageMove:
     def test_move_page(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -380,6 +486,17 @@ class TestPageMove:
         assert call_kwargs["page_id"] == PAGE_ID
         assert call_kwargs["parent"] == {"page_id": NEW_PARENT_ID}
 
+    def test_dry_run_skips_api(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["page", "move", PAGE_ID, "--to", PARENT_ID, "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        mock_client.pages.move.assert_not_called()
+
 
 class TestPageMoveStdin:
     def test_moves_multiple_pages(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -400,7 +517,6 @@ class TestPageMoveStdin:
         assert mock_client.pages.move.call_count == 2
 
     def test_stdin_continues_on_failure(self, runner: CliRunner, mock_client: AsyncMock) -> None:
-        from notion_client.errors import APIResponseError
 
         mock_client.pages.move.side_effect = [
             APIResponseError(
@@ -426,6 +542,20 @@ class TestPageMoveStdin:
 
         assert result.exit_code == 1
         assert mock_client.pages.move.call_count == 2
+
+    def test_stdin_dry_run_skips_api(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        ndjson = f'{{"page_id": "{PAGE_ID}", "to": "{PARENT_ID}"}}\n'
+        result = runner.invoke(
+            app,
+            ["page", "move", "--stdin", "--dry-run"],
+            input=ndjson,
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        mock_client.pages.move.assert_not_called()
 
 
 class TestPageDuplicate:
@@ -699,6 +829,17 @@ class TestPageDuplicate:
         create_kwargs = mock_client.pages.create.call_args.kwargs
         assert create_kwargs["properties"] == {}
 
+    def test_dry_run_skips_api(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["page", "duplicate", PAGE_ID, "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        mock_client.pages.retrieve.assert_not_called()
+
 
 class TestPageCreateStdin:
     def test_creates_multiple_pages(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -742,7 +883,6 @@ class TestPageCreateStdin:
         assert json.loads(lines[1])["id"] == "id-2"
 
     def test_stdin_continues_on_failure(self, runner: CliRunner, mock_client: AsyncMock) -> None:
-        from notion_client.errors import APIResponseError
 
         mock_client.pages.create.side_effect = [
             APIResponseError(

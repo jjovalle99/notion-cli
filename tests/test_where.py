@@ -133,3 +133,20 @@ class TestDbQueryWhere:
         assert result.exit_code == 2
         error = json.loads(result.stderr)
         assert error["error_type"] == "conflicting_args"
+
+    def test_unknown_property_emits_warning(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.databases.retrieve.return_value = {
+            "properties": {"Status": {"type": "select"}}
+        }
+        mock_client.data_sources.query.return_value = {"results": [], "has_more": False}
+
+        result = runner.invoke(
+            app,
+            ["db", "query", DB_ID, "--where", "NonExistent = Done"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        assert "unresolved_property" in result.stderr
