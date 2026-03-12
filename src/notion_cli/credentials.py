@@ -25,6 +25,7 @@ def save_credentials(data: dict[str, str]) -> None:
         os.write(fd, json.dumps(data).encode())
     finally:
         os.close(fd)
+    os.chmod(tmp_path, 0o600)
     try:
         tmp_path.rename(path)
     except OSError:

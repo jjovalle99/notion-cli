@@ -231,7 +231,7 @@ class TestLogin:
         assert result.exit_code == 0
         # Verify server was bound to custom port
         mock_server_cls.assert_called_once()
-        assert mock_server_cls.call_args[0][0] == ("localhost", 9877)
+        assert mock_server_cls.call_args[0][0] == ("127.0.0.1", 9877)
 
 
 # ---------------------------------------------------------------------------

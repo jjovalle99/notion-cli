@@ -55,6 +55,9 @@ async def process_batch(
         try:
             result = await handler(item)
             write_result(format_json(project_fields(result, fields)))
+        except SystemExit as exc:
+            failures += 1
+            write_error(format_error("batch_item_failed", f"exit code {exc.code}"))
         except Exception as exc:
             failures += 1
             write_error(format_error("batch_item_failed", str(exc)))
