@@ -330,6 +330,53 @@ class TestPageMove:
         assert call_kwargs["parent"] == {"page_id": NEW_PARENT_ID}
 
 
+class TestPageMoveStdin:
+    def test_moves_multiple_pages(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.move.return_value = MOCK_PAGE
+        ndjson = (
+            f'{{"page_id": "{PAGE_ID}", "to": "{NEW_PARENT_ID}"}}\n'
+            f'{{"page_id": "{PAGE_ID}", "to": "{PARENT_ID}"}}\n'
+        )
+
+        result = runner.invoke(
+            app,
+            ["page", "move", "--stdin"],
+            input=ndjson,
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        assert mock_client.pages.move.call_count == 2
+
+    def test_stdin_continues_on_failure(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        from notion_client.errors import APIResponseError
+
+        mock_client.pages.move.side_effect = [
+            APIResponseError(
+                code="object_not_found",
+                status=404,
+                message="not found",
+                headers={},
+                raw_body_text="",
+            ),
+            MOCK_PAGE,
+        ]
+        ndjson = (
+            f'{{"page_id": "{PAGE_ID}", "to": "{NEW_PARENT_ID}"}}\n'
+            f'{{"page_id": "{PAGE_ID}", "to": "{PARENT_ID}"}}\n'
+        )
+
+        result = runner.invoke(
+            app,
+            ["page", "move", "--stdin"],
+            input=ndjson,
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 1
+        assert mock_client.pages.move.call_count == 2
+
+
 class TestPageDuplicate:
     def test_duplicate_page(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.pages.retrieve.return_value = {
@@ -600,3 +647,75 @@ class TestPageDuplicate:
         assert result.exit_code == 0
         create_kwargs = mock_client.pages.create.call_args.kwargs
         assert create_kwargs["properties"] == {}
+
+
+class TestPageCreateStdin:
+    def test_creates_multiple_pages(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.create.return_value = {**MOCK_PAGE, "id": "new-id"}
+        ndjson = (
+            f'{{"parent": "{PARENT_ID}", "title": "Page A"}}\n'
+            f'{{"parent": "{PARENT_ID}", "title": "Page B"}}\n'
+        )
+
+        result = runner.invoke(
+            app,
+            ["page", "create", "--stdin"],
+            input=ndjson,
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        assert mock_client.pages.create.call_count == 2
+
+    def test_stdin_outputs_ndjson(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.create.side_effect = [
+            {**MOCK_PAGE, "id": "id-1"},
+            {**MOCK_PAGE, "id": "id-2"},
+        ]
+        ndjson = (
+            f'{{"parent": "{PARENT_ID}", "title": "A"}}\n'
+            f'{{"parent": "{PARENT_ID}", "title": "B"}}\n'
+        )
+
+        result = runner.invoke(
+            app,
+            ["page", "create", "--stdin"],
+            input=ndjson,
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        lines = [ln for ln in result.stdout.strip().split("\n") if ln]
+        assert len(lines) == 2
+        assert json.loads(lines[0])["id"] == "id-1"
+        assert json.loads(lines[1])["id"] == "id-2"
+
+    def test_stdin_continues_on_failure(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        from notion_client.errors import APIResponseError
+
+        mock_client.pages.create.side_effect = [
+            APIResponseError(
+                code="validation_error",
+                status=400,
+                message="bad",
+                headers={},
+                raw_body_text="",
+            ),
+            {**MOCK_PAGE, "id": "id-2"},
+        ]
+        ndjson = (
+            f'{{"parent": "{PARENT_ID}", "title": "A"}}\n'
+            f'{{"parent": "{PARENT_ID}", "title": "B"}}\n'
+        )
+
+        result = runner.invoke(
+            app,
+            ["page", "create", "--stdin"],
+            input=ndjson,
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 1
+        assert mock_client.pages.create.call_count == 2
+        stdout_lines = [ln for ln in result.stdout.strip().split("\n") if ln]
+        assert len(stdout_lines) == 1
