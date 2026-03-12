@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
 from notion_cli._async import await_with_timeout
@@ -123,6 +124,64 @@ async def fetch_recursive(
         blocks[idx]["children"] = children
 
     return blocks
+
+
+RICH_TEXT_BLOCK_TYPES = frozenset(
+    {
+        "paragraph",
+        "heading_1",
+        "heading_2",
+        "heading_3",
+        "bulleted_list_item",
+        "numbered_list_item",
+        "to_do",
+        "toggle",
+        "quote",
+        "callout",
+        "code",
+        "template",
+    }
+)
+
+
+def replace_in_rich_text(
+    rich_text: list[dict[str, Any]], find: str, replace: str
+) -> tuple[list[dict[str, Any]], bool]:
+    """Replace text within rich_text spans, preserving annotations and links.
+
+    Returns:
+        A tuple of (new_rich_text, changed). If no match found, returns the
+        original list unchanged with changed=False.
+    """
+    changed = False
+    result: list[dict[str, Any]] = []
+    for span in rich_text:
+        if span.get("type") != "text":
+            result.append(span)
+            continue
+        content = span["text"]["content"]
+        if find not in content:
+            result.append(span)
+            continue
+        changed = True
+        new_span = {**span, "text": {**span["text"], "content": content.replace(find, replace)}}
+        result.append(new_span)
+    if not changed:
+        return rich_text, False
+    return result, True
+
+
+def flatten_blocks(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Flatten a recursive block tree into a flat list."""
+
+    def _walk(items: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
+        for block in items:
+            yield block
+            children = block.get("children")
+            if children:
+                yield from _walk(children)
+
+    return list(_walk(blocks))
 
 
 _MAX_CLEAN_DEPTH = 50
