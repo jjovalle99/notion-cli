@@ -19,6 +19,33 @@ comment_app = typer.Typer(
 )
 
 
+def _resolve_rich_text(body: str | None, rich_text_json: str | None) -> list[object]:
+    import sys
+
+    from notion_cli.output import ExitCode, format_error
+
+    if body and rich_text_json:
+        sys.stderr.write(
+            format_error(
+                "conflicting_args",
+                "--body and --rich-text are mutually exclusive.",
+            )
+            + "\n"
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
+    if rich_text_json:
+        from notion_cli.parsing import parse_json
+
+        parsed = parse_json(rich_text_json, expected_type=list, label="--rich-text")
+        assert isinstance(parsed, list)
+        return parsed
+    if body:
+        return [{"text": {"content": body}}]
+
+    sys.stderr.write(format_error("missing_args", "Provide --body or --rich-text.") + "\n")
+    raise SystemExit(ExitCode.BAD_ARGS)
+
+
 @comment_app.command()
 @run_async
 async def add(
@@ -27,36 +54,89 @@ async def add(
         typer.Argument(help="Page ID or URL to comment on."),
     ],
     body: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--body",
             "-b",
             help="Comment text as plain text.",
         ),
-    ],
+    ] = None,
+    rich_text: Annotated[
+        str | None,
+        typer.Option(
+            "--rich-text",
+            help="Rich text as a JSON array. Mutually exclusive with --body.",
+        ),
+    ] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Add a comment to a Notion page.
 
-    Creates a new comment at the page level. The comment appears in the
-    page's discussion thread.
+    Creates a new comment at the page level. Provide text via --body
+    or formatted content via --rich-text (JSON array).
 
     Examples:
         notion comment add abc123 --body "Looks good, ship it!"
-        notion comment add abc123 -b "Please review the budget section"
+        notion comment add abc123 --rich-text '[{"text": {"content": "bold"}, "annotations": {"bold": true}}]'
     """
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
+    rt = _resolve_rich_text(body, rich_text)
 
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(
-            client.comments.create(
-                parent={"page_id": pid},
-                rich_text=[{"text": {"content": body}}],
-            ),
+            client.comments.create(parent={"page_id": pid}, rich_text=rt),
+            timeout,
+        )
+    typer.echo(format_json(result))
+
+
+@comment_app.command()
+@run_async
+async def reply(
+    discussion_id: Annotated[
+        str,
+        typer.Argument(help="Discussion ID to reply to (from comment list output)."),
+    ],
+    body: Annotated[
+        str | None,
+        typer.Option(
+            "--body",
+            "-b",
+            help="Reply text as plain text.",
+        ),
+    ] = None,
+    rich_text: Annotated[
+        str | None,
+        typer.Option(
+            "--rich-text",
+            help="Rich text as a JSON array. Mutually exclusive with --body.",
+        ),
+    ] = None,
+    token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
+) -> None:
+    """Reply to an existing comment thread.
+
+    Uses the discussion_id from a comment object to add a reply to that
+    thread. Provide text via --body or formatted content via --rich-text.
+
+    Examples:
+        notion comment reply disc-abc123 --body "Agreed!"
+        notion comment reply disc-abc123 --rich-text '[{"text": {"content": "done"}}]'
+    """
+    resolved_token = resolve_token(token=token)
+    did = extract_id(discussion_id)
+    rt = _resolve_rich_text(body, rich_text)
+
+    from notion_client import AsyncClient
+
+    async with AsyncClient(auth=resolved_token) as client:
+        result = await await_with_timeout(
+            client.comments.create(discussion_id=did, rich_text=rt),
             timeout,
         )
     typer.echo(format_json(result))
