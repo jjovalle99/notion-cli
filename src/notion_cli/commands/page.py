@@ -5,8 +5,8 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import fields_option, timeout_option, token_option
-from notion_cli.output import ExitCode, format_error, format_json, project_fields
+from notion_cli.options import dry_run_option, fields_option, timeout_option, token_option
+from notion_cli.output import ExitCode, echo_dry_run, format_error, format_json, project_fields
 from notion_cli.parsing import extract_id, parse_fields, read_content
 
 _READ_ONLY_TYPES = frozenset(
@@ -105,6 +105,7 @@ async def create(
             click_type=click.Choice(["page", "database"]),
         ),
     ] = "page",
+    dry_run: Annotated[bool, dry_run_option()] = False,
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -136,13 +137,17 @@ async def create(
     if icon is not None:
         kwargs["icon"] = {"type": "emoji", "emoji": icon}
 
+    if content is not None:
+        kwargs["markdown"] = read_content(content)
+
+    if dry_run:
+        echo_dry_run("page create", kwargs)
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token, notion_version="2026-03-11") as client:
         if content is not None:
-            # Bypass pages.create() which filters out 'markdown' via pick()
-            body = {**kwargs, "markdown": read_content(content)}
-            coro = client.request(path="pages", method="POST", body=body)
+            coro = client.request(path="pages", method="POST", body=kwargs)
         else:
             coro = client.pages.create(**kwargs)
         result = await await_with_timeout(coro, timeout)
@@ -191,6 +196,7 @@ async def update(
             help="Archive (--archive) or unarchive (--no-archive) the page.",
         ),
     ] = None,
+    dry_run: Annotated[bool, dry_run_option()] = False,
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -237,6 +243,9 @@ async def update(
     if archive is not None:
         kwargs["archived"] = archive
 
+    if dry_run:
+        echo_dry_run("page update", kwargs)
+
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
@@ -258,6 +267,7 @@ async def move(
             help="New parent page ID or URL. Example: 'abc123' or a full Notion URL.",
         ),
     ],
+    dry_run: Annotated[bool, dry_run_option()] = False,
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -275,17 +285,15 @@ async def move(
     fields_set = parse_fields(fields)
     pid = extract_id(page_id)
     new_parent_id = extract_id(to)
+    kwargs: dict[str, object] = {"page_id": pid, "parent": {"page_id": new_parent_id}}
+
+    if dry_run:
+        echo_dry_run("page move", kwargs)
 
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(
-            client.pages.move(
-                page_id=pid,
-                parent={"page_id": new_parent_id},
-            ),
-            timeout,
-        )
+        result = await await_with_timeout(client.pages.move(**kwargs), timeout)
     typer.echo(format_json(project_fields(result, fields_set)))
 
 
@@ -319,6 +327,7 @@ async def duplicate(
             click_type=click.Choice(["page", "database"]),
         ),
     ] = "page",
+    dry_run: Annotated[bool, dry_run_option()] = False,
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -343,6 +352,15 @@ async def duplicate(
             format_error("missing_args", "--destination-type requires --destination."), err=True
         )
         raise SystemExit(ExitCode.BAD_ARGS)
+
+    if dry_run:
+        payload: dict[str, object] = {
+            "source_page_id": pid,
+            "with_content": with_content,
+        }
+        if dest_id:
+            payload["destination"] = {f"{destination_type}_id": dest_id}
+        echo_dry_run("page duplicate", payload)
 
     from notion_client import AsyncClient
 

@@ -122,6 +122,35 @@ class TestDbQuery:
         assert result.exit_code == 0
         assert mock_client.data_sources.query.call_count == 1
 
+    def test_query_ndjson_format(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.data_sources.query.return_value = MOCK_QUERY_RESULT
+
+        result = runner.invoke(
+            app,
+            ["db", "query", DB_ID, "--output-format", "ndjson"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        lines = result.stdout.strip().split("\n")
+        assert len(lines) == 2
+        assert json.loads(lines[0])["id"] == "row-1"
+        assert json.loads(lines[1])["id"] == "row-2"
+
+    def test_query_ndjson_with_fields(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.data_sources.query.return_value = MOCK_QUERY_RESULT
+
+        result = runner.invoke(
+            app,
+            ["db", "query", DB_ID, "--output-format", "ndjson", "--fields", "id"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        lines = result.stdout.strip().split("\n")
+        assert json.loads(lines[0]) == {"id": "row-1"}
+        assert json.loads(lines[1]) == {"id": "row-2"}
+
     def test_query_with_limit(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         page1 = {
             "results": [{"id": f"r{i}"} for i in range(100)],
