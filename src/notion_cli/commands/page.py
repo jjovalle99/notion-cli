@@ -308,9 +308,17 @@ async def duplicate(
         typer.Option(
             "--destination",
             "-d",
-            help="Parent page ID/URL for the copy. Defaults to same parent as original.",
+            help="Parent page or database ID/URL for the copy. Defaults to same parent as original.",
         ),
     ] = None,
+    destination_type: Annotated[
+        str,
+        typer.Option(
+            "--destination-type",
+            help="Destination type: 'page' (default) or 'database'.",
+            click_type=click.Choice(["page", "database"]),
+        ),
+    ] = "page",
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -330,6 +338,11 @@ async def duplicate(
     fields_set = set(fields.split(",")) if fields else None
     pid = extract_id(page_id)
     dest_id = extract_id(destination) if destination else None
+    if destination_type != "page" and not dest_id:
+        typer.echo(
+            format_error("missing_args", "--destination-type requires --destination."), err=True
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
 
     from notion_client import AsyncClient
 
@@ -341,7 +354,10 @@ async def duplicate(
             for k, v in props.items()
             if isinstance(v, dict) and v.get("type") not in _READ_ONLY_TYPES
         }
-        parent = {"page_id": dest_id} if dest_id else original.get("parent", {})
+        if dest_id:
+            parent = {f"{destination_type}_id": dest_id}
+        else:
+            parent = original.get("parent", {})
         create_kwargs: dict[str, object] = {
             "parent": parent,
             "properties": writable_props,

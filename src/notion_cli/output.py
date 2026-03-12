@@ -26,9 +26,8 @@ def project_fields(data: object, fields: set[str] | None) -> object:
         return {k: v for k, v in data.items() if k in fields}
     if isinstance(data, list):
         return [
-            {k: v for k, v in item.items() if k in fields}
+            {k: v for k, v in item.items() if k in fields} if isinstance(item, dict) else item
             for item in data
-            if isinstance(item, dict)
         ]
     return data
 

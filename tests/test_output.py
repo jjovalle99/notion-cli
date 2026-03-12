@@ -15,6 +15,12 @@ def test_project_fields_list() -> None:
     assert result == [{"id": "1"}, {"id": "2"}]
 
 
+def test_project_fields_list_preserves_non_dict_items() -> None:
+    data = [{"id": "1", "name": "A"}, "plain-string", 42]
+    result = project_fields(data, {"id"})
+    assert result == [{"id": "1"}, "plain-string", 42]
+
+
 def test_project_fields_none_returns_unchanged() -> None:
     data = {"id": "abc", "title": "Test"}
     assert project_fields(data, None) is data
