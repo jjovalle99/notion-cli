@@ -3,7 +3,7 @@ from typing import Annotated
 
 import typer
 
-from notion_cli._async import await_with_timeout, paginate, run_async
+from notion_cli._async import await_with_timeout, paginate, paginate_stream, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import (
     dry_run_option,
@@ -19,6 +19,7 @@ from notion_cli.output import (
     format_error,
     format_json,
     project_fields,
+    stream_ndjson_page,
 )
 from notion_cli.parsing import extract_id, parse_fields
 
@@ -108,6 +109,13 @@ async def query(
         str | None,
         typer.Option("--fields", help="Comma-separated list of fields to include in output."),
     ] = None,
+    stream: Annotated[
+        bool,
+        typer.Option(
+            "--stream",
+            help="Stream results as NDJSON (one JSON object per line), writing each page immediately.",
+        ),
+    ] = False,
     output_format: Annotated[str, output_format_option()] = "json",
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -122,6 +130,7 @@ async def query(
         notion db query aabbccdd11223344556677889900aabb
         notion db query abc123 --filter '{"property": "Status", "select": {"equals": "Done"}}'
         notion db query abc123 --sort '[{"property": "Date", "direction": "descending"}]'
+        notion db query abc123 --stream
     """
 
     from notion_cli.parsing import parse_json, validate_limit
@@ -140,11 +149,18 @@ async def query(
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        all_results, envelope = await paginate(
-            partial(client.data_sources.query, did), kwargs, timeout, limit=limit
-        )
+        if stream:
+            async for page_results in paginate_stream(
+                partial(client.data_sources.query, did), kwargs, timeout, limit=limit
+            ):
+                stream_ndjson_page(page_results, fields_set)
+        else:
+            all_results, envelope = await paginate(
+                partial(client.data_sources.query, did), kwargs, timeout, limit=limit
+            )
 
-    echo_list(project_fields(all_results, fields_set), envelope, output_format)
+    if not stream:
+        echo_list(project_fields(all_results, fields_set), envelope, output_format)
 
 
 @db_app.command()
