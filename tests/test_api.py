@@ -21,7 +21,7 @@ class TestApi:
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data["id"] == "abc-123"
-        mock_client.request.assert_called_once_with(path="/pages/abc-123", method="GET")
+        mock_client.request.assert_called_once_with(path="pages/abc-123", method="GET")
 
     def test_post_with_body(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.request.return_value = MOCK_PAGE
@@ -35,7 +35,7 @@ class TestApi:
 
         assert result.exit_code == 0
         mock_client.request.assert_called_once_with(
-            path="/pages",
+            path="pages",
             method="POST",
             body={"parent": {"page_id": "x"}, "properties": {}},
         )
@@ -50,7 +50,7 @@ class TestApi:
         )
 
         assert result.exit_code == 0
-        mock_client.request.assert_called_once_with(path="/pages/abc-123", method="GET")
+        mock_client.request.assert_called_once_with(path="pages/abc-123", method="GET")
 
     def test_invalid_method_rejected(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         result = runner.invoke(

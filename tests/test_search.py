@@ -67,6 +67,7 @@ def test_search_passes_query_to_api(runner: CliRunner, mock_client: AsyncMock) -
 
 def test_search_without_token_fails(runner: CliRunner, monkeypatch: "pytest.MonkeyPatch") -> None:
     monkeypatch.setattr("notion_cli.auth.load_credentials", lambda: None)
+    monkeypatch.delenv("NOTION_API_KEY", raising=False)
     result = runner.invoke(app, ["search", "test"], env={})
     assert result.exit_code == 2
 
