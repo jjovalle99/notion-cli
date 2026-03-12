@@ -33,6 +33,7 @@ async def paginate(
     limit: int | None = None,
 ) -> tuple[list[object], dict[str, object]]:
     """Paginate a Notion API list method, collecting all results."""
+    kwargs = dict(kwargs)
     if limit is not None:
         kwargs["page_size"] = min(limit, 100)
 
