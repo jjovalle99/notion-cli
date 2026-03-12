@@ -181,6 +181,29 @@ class TestFetchRecursive:
         assert len(blocks) == 1
         assert "children" not in blocks[0]
 
+    def test_paginates_at_nested_level(self, client: AsyncMock) -> None:
+        top_level = {
+            "results": [{"id": "p1", "type": "toggle", "has_children": True}],
+            "has_more": False,
+        }
+        nested_page1 = {
+            "results": [{"id": "c1", "type": "paragraph", "has_children": False}],
+            "has_more": True,
+            "next_cursor": "cur1",
+        }
+        nested_page2 = {
+            "results": [{"id": "c2", "type": "paragraph", "has_children": False}],
+            "has_more": False,
+        }
+        client.blocks.children.list.side_effect = [top_level, nested_page1, nested_page2]
+
+        blocks = asyncio.run(fetch_recursive(client, BLOCK_ID, timeout=None))
+
+        assert len(blocks[0]["children"]) == 2
+        assert blocks[0]["children"][0]["id"] == "c1"
+        assert blocks[0]["children"][1]["id"] == "c2"
+        assert client.blocks.children.list.call_count == 3
+
 
 class TestCleanBlock:
     def test_strips_server_fields(self) -> None:
