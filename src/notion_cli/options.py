@@ -14,7 +14,7 @@ def timeout_option() -> OptionInfo:
     """Shared --timeout option for all commands."""
     return typer.Option(
         "--timeout",
-        help="Timeout per API request in seconds (each paginated fetch gets its own timeout). Omit for no timeout.",
+        help="Timeout per API request in seconds. Each paginated fetch gets its own timeout; total wall-clock time for multi-page results is not bounded. Omit for no timeout.",
     )
 
 

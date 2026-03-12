@@ -200,6 +200,20 @@ class TestBlockGet:
         assert "- parent" in result.stdout
         assert "    - child" in result.stdout
 
+    def test_get_recursive_with_limit_rejected(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["block", "get", BLOCK_ID, "--recursive", "--limit", "10"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "conflicting_args"
+        mock_client.blocks.children.list.assert_not_called()
+
     def test_get_limit_zero_rejected(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         result = runner.invoke(
             app, ["block", "get", BLOCK_ID, "--limit", "0"], env={"NOTION_API_KEY": "secret"}
@@ -239,6 +253,34 @@ class TestBlockAppend:
         error = json.loads(result.stderr)
         assert error["error_type"] == "empty_input"
         mock_client.blocks.children.append.assert_not_called()
+
+    def test_append_partial_failure_reports_progress(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        from notion_client.errors import APIResponseError
+
+        blocks = [{"type": "paragraph", "paragraph": {"rich_text": []}} for _ in range(150)]
+        mock_client.blocks.children.append.side_effect = [
+            {"results": []},
+            APIResponseError(
+                code="internal_server_error",
+                status=500,
+                message="fail",
+                headers={},
+                raw_body_text="",
+            ),
+        ]
+
+        result = runner.invoke(
+            app,
+            ["block", "append", PARENT_ID, "--children", json.dumps(blocks)],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 1
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "partial_append"
+        assert "100" in error["message"]
 
     def test_append_from_file(
         self,
