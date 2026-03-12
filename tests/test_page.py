@@ -40,6 +40,24 @@ class TestPageGet:
         assert result.exit_code == 0
         mock_client.pages.retrieve.assert_called_once_with("abc123de-f456-abc1-23de-f456abc123de")
 
+    def test_get_with_fields(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.retrieve.return_value = {
+            "id": PAGE_ID,
+            "object": "page",
+            "url": "https://notion.so/page",
+            "properties": {},
+        }
+
+        result = runner.invoke(
+            app,
+            ["page", "get", PAGE_ID, "--fields", "id,url"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data == {"id": PAGE_ID, "url": "https://notion.so/page"}
+
 
 class TestPageCreate:
     def test_create_with_title(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -348,6 +366,62 @@ class TestPageDuplicate:
         assert "Editor" not in props
         assert "Calc" not in props
         assert "Roll" not in props
+
+    def test_duplicate_with_destination(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.retrieve.return_value = {
+            **MOCK_PAGE,
+            "parent": {"page_id": PARENT_ID},
+            "icon": None,
+            "cover": None,
+        }
+        mock_client.pages.create.return_value = {**MOCK_PAGE, "id": "new-page-id"}
+
+        result = runner.invoke(
+            app,
+            ["page", "duplicate", PAGE_ID, "--destination", NEW_PARENT_ID],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        create_kwargs = mock_client.pages.create.call_args.kwargs
+        assert create_kwargs["parent"] == {"page_id": NEW_PARENT_ID}
+
+    def test_duplicate_with_content(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.retrieve.return_value = {
+            **MOCK_PAGE,
+            "parent": {"page_id": PARENT_ID},
+            "icon": None,
+            "cover": None,
+        }
+        mock_client.pages.create.return_value = {**MOCK_PAGE, "id": "new-page-id"}
+        mock_client.blocks.children.list.return_value = {
+            "results": [
+                {
+                    "id": "block-1",
+                    "type": "paragraph",
+                    "has_children": False,
+                    "paragraph": {"rich_text": [{"text": {"content": "Hello"}}]},
+                    "object": "block",
+                    "created_time": "2024-01-01",
+                }
+            ],
+            "has_more": False,
+        }
+        mock_client.blocks.children.append.return_value = {"results": []}
+
+        result = runner.invoke(
+            app,
+            ["page", "duplicate", PAGE_ID, "--with-content"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        mock_client.blocks.children.append.assert_called_once()
+        append_kwargs = mock_client.blocks.children.append.call_args.kwargs
+        children = append_kwargs["children"]
+        assert children[0]["type"] == "paragraph"
+        assert "id" not in children[0]
+        assert "created_time" not in children[0]
 
     def test_duplicate_missing_properties(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.pages.retrieve.return_value = {

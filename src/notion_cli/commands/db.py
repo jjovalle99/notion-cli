@@ -5,7 +5,7 @@ import typer
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import timeout_option, token_option
-from notion_cli.output import format_json
+from notion_cli.output import format_json, project_fields
 from notion_cli.parsing import extract_id
 
 
@@ -28,6 +28,10 @@ async def get(
             help="Database ID or Notion URL. Example: 'abc123' or a full Notion database URL.",
         ),
     ],
+    fields: Annotated[
+        str | None,
+        typer.Option("--fields", help="Comma-separated list of fields to include in output."),
+    ] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -41,12 +45,13 @@ async def get(
         notion db get https://notion.so/myworkspace/aabbccdd11223344556677889900aabb?v=...
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     did = extract_id(db_id)
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.databases.retrieve(did), timeout)
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
 
 
 @db_app.command()
@@ -88,6 +93,10 @@ async def query(
             help="Maximum number of rows to return. All rows are buffered in memory; use --limit on large databases.",
         ),
     ] = None,
+    fields: Annotated[
+        str | None,
+        typer.Option("--fields", help="Comma-separated list of fields to include in output."),
+    ] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -105,6 +114,7 @@ async def query(
     from notion_cli.parsing import parse_json, validate_limit
 
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     did = extract_id(db_id)
     validate_limit(limit)
 
@@ -139,7 +149,11 @@ async def query(
 
     if limit is not None:
         all_results = all_results[:limit]
-    typer.echo(format_json({**envelope, "results": all_results, "has_more": False}))
+    typer.echo(
+        format_json(
+            {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
+        )
+    )
 
 
 @db_app.command()
@@ -171,6 +185,10 @@ async def create(
             ),
         ),
     ] = None,
+    fields: Annotated[
+        str | None,
+        typer.Option("--fields", help="Comma-separated list of fields to include in output."),
+    ] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -184,6 +202,7 @@ async def create(
         notion db create -p abc123 -t "Tracker" --properties '{"Status": {"select": {}}}'
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     parent_id = extract_id(parent)
 
     kwargs: dict[str, object] = {
@@ -202,7 +221,7 @@ async def create(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.data_sources.create(**kwargs), timeout)
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
 
 
 @db_app.command()
@@ -227,6 +246,10 @@ async def update(
             help="Updated properties schema as a JSON string.",
         ),
     ] = None,
+    fields: Annotated[
+        str | None,
+        typer.Option("--fields", help="Comma-separated list of fields to include in output."),
+    ] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -239,6 +262,7 @@ async def update(
         notion db update abc123 --properties '{"Priority": {"select": {}}}'
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     did = extract_id(db_id)
 
     kwargs: dict[str, object] = {}
@@ -253,4 +277,4 @@ async def update(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.data_sources.update(did, **kwargs), timeout)
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
