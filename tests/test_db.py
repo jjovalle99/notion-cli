@@ -34,6 +34,17 @@ class TestDbGet:
         data = json.loads(result.stdout)
         assert data["id"] == DB_ID
 
+    def test_get_with_fields(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.databases.retrieve.return_value = MOCK_DB
+
+        result = runner.invoke(
+            app, ["db", "get", DB_ID, "--fields", "id,object"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data == {"id": DB_ID, "object": "database"}
+
 
 class TestDbQuery:
     def test_query_without_filter(self, runner: CliRunner, mock_client: AsyncMock) -> None:
