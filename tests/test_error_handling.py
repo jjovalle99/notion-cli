@@ -75,6 +75,23 @@ class TestRateLimitedError:
         error = json.loads(result.stderr)
         assert error["error_type"] == "rate_limited"
 
+    def test_rate_limited_includes_retry_after(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.search.side_effect = APIResponseError(
+            code="rate_limited",
+            status=429,
+            message="Rate limited",
+            headers={"retry-after": "30"},
+            raw_body_text="",
+        )
+
+        result = runner.invoke(app, ["search", "test"], env={"NOTION_API_KEY": "secret"})
+
+        assert result.exit_code == 5
+        error = json.loads(result.stderr)
+        assert error["suggestion"] == "Retry after 30s"
+
 
 class TestGenericApiError:
     def test_internal_server_error_returns_json_error(
