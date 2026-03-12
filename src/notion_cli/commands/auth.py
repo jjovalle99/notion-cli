@@ -100,7 +100,7 @@ def login(
     from http.server import HTTPServer
 
     try:
-        server = HTTPServer(("localhost", port), _make_callback_handler())
+        server = HTTPServer(("127.0.0.1", port), _make_callback_handler())
     except OSError:
         sys.stderr.write(
             format_error(

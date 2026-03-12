@@ -202,7 +202,11 @@ async def create(
                 kw["icon"] = {"type": "emoji", "emoji": item_icon}
             item_content = item.get("content")
             if item_content is not None:
-                kw["markdown"] = read_content(str(item_content))
+                content_str = str(item_content)
+                if content_str.startswith("@"):
+                    kw["markdown"] = read_content(content_str)
+                else:
+                    kw["markdown"] = content_str
                 return await await_with_timeout(
                     client.request(path="pages", method="POST", body=kw), timeout
                 )
@@ -210,9 +214,7 @@ async def create(
 
         async with AsyncClient(auth=resolved_token, notion_version="2026-03-11") as client:
             exit_code = await process_batch(
-                lines=sys.stdin,
-                handler=_create_one,
-                fields=fields_set,
+                lines=sys.stdin, handler=_create_one, fields=fields_set
             )
         raise SystemExit(exit_code)
 
@@ -630,6 +632,10 @@ async def edit(
     )
 
     import re
+
+    if not find:
+        typer.echo(format_error("invalid_args", "--find must not be empty."), err=True)
+        raise SystemExit(ExitCode.BAD_ARGS)
 
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)

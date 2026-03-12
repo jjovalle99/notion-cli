@@ -214,7 +214,7 @@ def clean_block(
         msg = f"Block nesting exceeds maximum depth ({_MAX_CLEAN_DEPTH})"
         raise ValueError(msg)
     cleaned = {k: v for k, v in block.items() if k not in _BLOCK_SERVER_FIELDS}
-    if "children" in cleaned:
+    if cleaned.get("children"):
         cleaned["children"] = [
             clean_block(c, skip_types=skip_types, _depth=_depth + 1)
             for c in cleaned["children"]

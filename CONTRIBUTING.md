@@ -108,7 +108,9 @@ These utilities in `parsing.py` and `_block_utils.py` should be reused, not reim
 | `parse_json(value, expected_type, label)` | `parsing.py` | Parse and type-validate JSON options (`--filter`, `--properties`, etc.) |
 | `resolve_rich_text(body, rich_text_json)` | `parsing.py` | Resolve `--body` / `--rich-text` mutual exclusion for comments |
 | `project_fields(data, fields_set)` | `output.py` | Apply `--fields` projection to output data |
+| `read_content(value)` | `parsing.py` | Read from string, `@file` path, or `-` for stdin |
 | `paginate(method, kwargs, timeout, limit)` | `_async.py` | Paginate any Notion list endpoint |
+| `paginate_stream(method, kwargs, timeout, limit)` | `_async.py` | Paginate yielding each page (for `--stream` NDJSON) |
 | `fetch_children(client, block_id, timeout, limit)` | `_block_utils.py` | Fetch child blocks with optional limit |
 | `fetch_recursive(client, block_id, timeout, max_depth)` | `_block_utils.py` | Recursively fetch nested blocks (semaphore-bounded concurrency) |
 | `clean_block(block, skip_types)` | `_block_utils.py` | Strip server fields for block re-creation; filters `skip_types` recursively |
