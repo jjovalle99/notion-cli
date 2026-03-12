@@ -1,6 +1,7 @@
 from typing import Any
 
 _HEADING_PREFIX = {"heading_1": "# ", "heading_2": "## ", "heading_3": "### "}
+_LAYOUT_CONTAINERS = frozenset({"column_list", "column"})
 
 
 def rich_text_to_md(rich_text: list[dict[str, Any]]) -> str:
@@ -76,6 +77,17 @@ def _block_to_md(block: dict[str, Any], number: int, depth: int = 0) -> str:
         caption = rich_text_to_md(data.get("caption", []))
         return f"{indent}![{caption}]({url})"
 
+    if block_type in ("video", "audio", "pdf", "file"):
+        file_data = data.get("file") or data.get("external") or {}
+        url = file_data.get("url", "") if isinstance(file_data, dict) else ""
+        caption = rich_text_to_md(data.get("caption", []))
+        return f"{indent}[{caption or block_type}]({url})"
+
+    if block_type == "embed":
+        url = data.get("url", "")
+        caption = rich_text_to_md(data.get("caption", []))
+        return f"{indent}[{caption or block_type}]({url})"
+
     if block_type == "bookmark":
         url = data.get("url", "")
         caption = rich_text_to_md(data.get("caption", []))
@@ -132,6 +144,14 @@ def blocks_to_markdown(blocks: list[dict[str, Any]], depth: int = 0) -> str:
 
     for block in blocks:
         block_type = block.get("type", "")
+
+        if block_type in _LAYOUT_CONTAINERS:
+            children = block.get("children", [])
+            if children:
+                child_md = blocks_to_markdown(children, depth).rstrip("\n")
+                if child_md:
+                    lines.append(child_md)
+            continue
 
         if block_type == "numbered_list_item":
             numbered_counter += 1

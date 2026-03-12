@@ -1,3 +1,4 @@
+import click
 import typer
 from typer.models import OptionInfo
 
@@ -32,4 +33,15 @@ def dry_run_option() -> OptionInfo:
     return typer.Option(
         "--dry-run",
         help="Show what would be sent to the API without making changes.",
+    )
+
+
+def output_format_option() -> OptionInfo:
+    """Shared --output-format option for list commands."""
+
+    return typer.Option(
+        "--output-format",
+        "-o",
+        click_type=click.Choice(["json", "ndjson"]),
+        help="Output format: 'json' (default envelope) or 'ndjson' (one JSON object per line).",
     )

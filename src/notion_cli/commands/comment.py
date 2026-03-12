@@ -4,8 +4,14 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import dry_run_option, fields_option, timeout_option, token_option
-from notion_cli.output import echo_dry_run, format_json, project_fields
+from notion_cli.options import (
+    dry_run_option,
+    fields_option,
+    output_format_option,
+    timeout_option,
+    token_option,
+)
+from notion_cli.output import echo_dry_run, echo_list, format_json, project_fields
 from notion_cli.parsing import extract_id, parse_fields, resolve_rich_text
 
 comment_app = typer.Typer(
@@ -143,6 +149,7 @@ async def list_comments(
         ),
     ] = None,
     fields: Annotated[str | None, fields_option()] = None,
+    output_format: Annotated[str, output_format_option()] = "json",
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -170,8 +177,4 @@ async def list_comments(
             client.comments.list, {"block_id": pid}, timeout, limit=limit
         )
 
-    typer.echo(
-        format_json(
-            {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
-        )
-    )
+    echo_list(project_fields(all_results, fields_set), envelope, output_format)

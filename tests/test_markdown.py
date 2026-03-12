@@ -491,6 +491,120 @@ class TestBlocks:
         assert "    line3" in result
         assert "    ```" in result
 
+    def test_column_list_renders_children_without_extra_indent(self) -> None:
+        blocks = [
+            {
+                "type": "column_list",
+                "column_list": {},
+                "children": [
+                    {
+                        "type": "column",
+                        "column": {},
+                        "children": [
+                            {
+                                "type": "paragraph",
+                                "paragraph": {
+                                    "rich_text": [
+                                        {
+                                            "type": "text",
+                                            "text": {"content": "Left column"},
+                                            "annotations": {},
+                                        }
+                                    ]
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "type": "column",
+                        "column": {},
+                        "children": [
+                            {
+                                "type": "paragraph",
+                                "paragraph": {
+                                    "rich_text": [
+                                        {
+                                            "type": "text",
+                                            "text": {"content": "Right column"},
+                                            "annotations": {},
+                                        }
+                                    ]
+                                },
+                            }
+                        ],
+                    },
+                ],
+            }
+        ]
+        result = blocks_to_markdown(blocks)
+        assert "Left column\nRight column\n" == result
+
+    def test_column_list_empty(self) -> None:
+        blocks = [{"type": "column_list", "column_list": {}, "children": []}]
+        assert blocks_to_markdown(blocks) == ""
+
+    def test_video_block(self) -> None:
+        blocks = [
+            {
+                "type": "video",
+                "video": {"external": {"url": "https://youtube.com/watch?v=abc"}, "caption": []},
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "[video](https://youtube.com/watch?v=abc)\n"
+
+    def test_video_with_caption(self) -> None:
+        blocks = [
+            {
+                "type": "video",
+                "video": {
+                    "file": {"url": "https://example.com/v.mp4"},
+                    "caption": [{"type": "text", "text": {"content": "Demo"}, "annotations": {}}],
+                },
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "[Demo](https://example.com/v.mp4)\n"
+
+    def test_audio_block(self) -> None:
+        blocks = [
+            {
+                "type": "audio",
+                "audio": {"file": {"url": "https://example.com/a.mp3"}, "caption": []},
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "[audio](https://example.com/a.mp3)\n"
+
+    def test_pdf_block(self) -> None:
+        blocks = [
+            {
+                "type": "pdf",
+                "pdf": {"file": {"url": "https://example.com/doc.pdf"}, "caption": []},
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "[pdf](https://example.com/doc.pdf)\n"
+
+    def test_embed_block(self) -> None:
+        blocks = [
+            {
+                "type": "embed",
+                "embed": {"url": "https://figma.com/file/abc", "caption": []},
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "[embed](https://figma.com/file/abc)\n"
+
+    def test_file_block(self) -> None:
+        blocks = [
+            {
+                "type": "file",
+                "file": {
+                    "file": {"url": "https://example.com/data.csv"},
+                    "caption": [
+                        {"type": "text", "text": {"content": "Dataset"}, "annotations": {}}
+                    ],
+                },
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "[Dataset](https://example.com/data.csv)\n"
+
     def test_unknown_block_type_renders_text(self) -> None:
         blocks = [
             {
