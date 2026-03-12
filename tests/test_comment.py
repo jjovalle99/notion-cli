@@ -75,6 +75,17 @@ class TestCommentAdd:
         error = json.loads(result.stderr)
         assert error["error_type"] == "conflicting_args"
 
+    def test_dry_run_skips_api(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["comment", "add", PAGE_ID, "--body", "hi", "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        mock_client.comments.create.assert_not_called()
+
 
 class TestCommentReply:
     def test_reply_with_body(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -115,6 +126,17 @@ class TestCommentReply:
         )
 
         assert result.exit_code == 2
+
+    def test_dry_run_skips_api(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["comment", "reply", DISCUSSION_ID, "--body", "hi", "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        mock_client.comments.create.assert_not_called()
 
 
 class TestCommentList:

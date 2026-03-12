@@ -168,6 +168,25 @@ class TestDbQuery:
         data = json.loads(result.stdout)
         assert len(data["results"]) == 50
 
+    def test_stale_next_cursor_omitted_when_no_more(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.data_sources.query.return_value = {
+            "results": [{"id": "r1"}],
+            "has_more": False,
+            "next_cursor": "stale_cursor",
+        }
+
+        result = runner.invoke(
+            app,
+            ["db", "query", DB_ID],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert "next_cursor" not in data
+
 
 class TestDbCreate:
     def test_create_database(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -207,6 +226,17 @@ class TestDbCreate:
         assert "Name" in call_kwargs["properties"]
         assert "Status" in call_kwargs["properties"]
 
+    def test_dry_run_skips_api(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["db", "create", "--parent", PARENT_ID, "--title", "X", "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        mock_client.data_sources.create.assert_not_called()
+
 
 class TestDbUpdate:
     def test_update_title(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -245,3 +275,14 @@ class TestDbUpdate:
         assert result.exit_code == 0
         call_kwargs = mock_client.data_sources.update.call_args.kwargs
         assert "Priority" in call_kwargs["properties"]
+
+    def test_dry_run_skips_api(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["db", "update", DB_ID, "--title", "X", "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        mock_client.data_sources.update.assert_not_called()

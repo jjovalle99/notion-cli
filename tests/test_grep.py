@@ -129,3 +129,14 @@ class TestPageGrep:
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data == {"match_count": 2}
+
+    def test_invalid_regex_exits_2(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["page", "grep", PAGE_ID, "(unclosed", "--regex"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "invalid_args"

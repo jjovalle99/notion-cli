@@ -90,3 +90,15 @@ class TestApi:
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert data == {"id": "abc-123"}
+
+    def test_leading_slash_stripped_from_path(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.request.return_value = {"id": "x"}
+        runner.invoke(
+            app,
+            ["api", "GET", "/pages/abc-123"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        mock_client.request.assert_called_once_with(path="pages/abc-123", method="GET")
