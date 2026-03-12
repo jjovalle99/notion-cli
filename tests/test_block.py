@@ -228,6 +228,18 @@ class TestBlockAppend:
         assert "children" in call_kwargs
         assert len(call_kwargs["children"]) == 1
 
+    def test_append_empty_list_rejected(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["block", "append", PARENT_ID, "--children", "[]"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "empty_input"
+        mock_client.blocks.children.append.assert_not_called()
+
     def test_append_from_file(
         self,
         runner: CliRunner,

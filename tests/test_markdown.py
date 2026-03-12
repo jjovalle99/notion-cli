@@ -418,6 +418,79 @@ class TestBlocks:
         ]
         assert blocks_to_markdown(blocks) == "- **toggled**\n"
 
+    def test_table_renders_as_markdown(self) -> None:
+        def cell(text: str) -> list[dict[str, object]]:
+            return [{"type": "text", "text": {"content": text}, "annotations": {}}]
+
+        blocks = [
+            {
+                "type": "table",
+                "table": {"has_column_header": True, "has_row_header": False, "table_width": 2},
+                "children": [
+                    {"type": "table_row", "table_row": {"cells": [cell("Name"), cell("Age")]}},
+                    {"type": "table_row", "table_row": {"cells": [cell("Alice"), cell("30")]}},
+                    {"type": "table_row", "table_row": {"cells": [cell("Bob"), cell("25")]}},
+                ],
+            }
+        ]
+        result = blocks_to_markdown(blocks)
+        assert "| Name | Age |" in result
+        assert "| --- | --- |" in result
+        assert "| Alice | 30 |" in result
+        assert "| Bob | 25 |" in result
+
+    def test_table_without_header(self) -> None:
+        def cell(text: str) -> list[dict[str, object]]:
+            return [{"type": "text", "text": {"content": text}, "annotations": {}}]
+
+        blocks = [
+            {
+                "type": "table",
+                "table": {"has_column_header": False, "has_row_header": False, "table_width": 2},
+                "children": [
+                    {"type": "table_row", "table_row": {"cells": [cell("A"), cell("B")]}},
+                    {"type": "table_row", "table_row": {"cells": [cell("C"), cell("D")]}},
+                ],
+            }
+        ]
+        result = blocks_to_markdown(blocks)
+        assert "| A | B |" in result
+        assert "| --- | --- |" in result
+        assert "| C | D |" in result
+
+    def test_code_block_multiline_indented(self) -> None:
+        blocks = [
+            {
+                "type": "toggle",
+                "toggle": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "Toggle"}, "annotations": {}}
+                    ]
+                },
+                "children": [
+                    {
+                        "type": "code",
+                        "code": {
+                            "rich_text": [
+                                {
+                                    "type": "text",
+                                    "text": {"content": "line1\nline2\nline3"},
+                                    "annotations": {},
+                                }
+                            ],
+                            "language": "python",
+                        },
+                    }
+                ],
+            }
+        ]
+        result = blocks_to_markdown(blocks)
+        assert "    ```python" in result
+        assert "    line1" in result
+        assert "    line2" in result
+        assert "    line3" in result
+        assert "    ```" in result
+
     def test_unknown_block_type_renders_text(self) -> None:
         blocks = [
             {
