@@ -178,10 +178,20 @@ async def query(
             filters: list[dict[str, object]] = []
             for expr in where:
                 prop_type = "rich_text"
+                resolved = False
                 for name in sorted_names:
                     if expr.startswith(name):
                         prop_type = props[name].get("type", "rich_text")
+                        resolved = True
                         break
+                if not resolved:
+                    typer.echo(
+                        format_error(
+                            "unresolved_property",
+                            f"No matching property in database schema for: {expr!r}. Defaulting to rich_text filter.",
+                        ),
+                        err=True,
+                    )
                 filters.append(parse_where(expr, prop_type))
             if len(filters) == 1:
                 kwargs["filter"] = filters[0]

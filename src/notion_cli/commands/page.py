@@ -241,7 +241,10 @@ async def create(
 
     from notion_client import AsyncClient
 
-    async with AsyncClient(auth=resolved_token, notion_version="2026-03-11") as client:
+    client_kwargs: dict[str, object] = {"auth": resolved_token}
+    if content is not None:
+        client_kwargs["notion_version"] = "2026-03-11"
+    async with AsyncClient(**client_kwargs) as client:
         if content is not None:
             coro = client.request(path="pages", method="POST", body=kwargs)
         else:
@@ -598,6 +601,10 @@ async def edit(
         str,
         typer.Option("--replace", help="Replacement text."),
     ],
+    regex: Annotated[
+        bool,
+        typer.Option("--regex", "-E", help="Treat --find as a regular expression."),
+    ] = False,
     dry_run: Annotated[bool, dry_run_option()] = False,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -606,11 +613,14 @@ async def edit(
 
     Searches all text blocks (paragraphs, headings, lists, etc.) recursively
     and replaces matching text while preserving formatting and annotations.
+    Use --regex to treat the find pattern as a regular expression.
 
     Examples:
         notion page edit abc123 --find "old name" --replace "new name"
         notion page edit abc123 --find "TODO" --replace "DONE" --dry-run
+        notion page edit abc123 --find "\\d{4}" --replace "YEAR" --regex
     """
+
     from notion_cli._block_utils import (
         RICH_TEXT_BLOCK_TYPES,
         fetch_recursive,
@@ -618,8 +628,11 @@ async def edit(
         replace_in_rich_text,
     )
 
+    import re
+
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
+    compiled = re.compile(find) if regex else None
 
     from notion_client import AsyncClient
 
@@ -635,7 +648,9 @@ async def edit(
             type_data = block.get(btype)
             if not type_data or "rich_text" not in type_data:
                 continue
-            new_rt, changed = replace_in_rich_text(type_data["rich_text"], find, replace)
+            new_rt, changed = replace_in_rich_text(
+                type_data["rich_text"], find, replace, pattern=compiled
+            )
             if changed and block.get("id"):
                 modifications.append({"block_id": block["id"], "type": btype, "rich_text": new_rt})
 
@@ -722,7 +737,7 @@ async def grep(
     flat = flatten_blocks(blocks)
     results: list[dict[str, object]] = []
 
-    for idx, block in enumerate(flat):
+    for block in flat:
         btype = block.get("type", "")
         if btype not in RICH_TEXT_BLOCK_TYPES:
             continue
@@ -745,7 +760,6 @@ async def grep(
                 {
                     "block_id": block["id"],
                     "block_type": btype,
-                    "block_index": idx,
                     "text": text,
                     "matches": matches,
                 }

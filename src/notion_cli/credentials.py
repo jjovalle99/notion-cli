@@ -16,14 +16,16 @@ def load_credentials() -> dict[str, str] | None:
 
 
 def save_credentials(data: dict[str, str]) -> None:
-    """Write credentials to disk with 0600 permissions."""
+    """Write credentials to disk with 0600 permissions (atomic via temp + rename)."""
     path = _credentials_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    tmp_path = path.with_suffix(".tmp")
+    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
         os.write(fd, json.dumps(data).encode())
     finally:
         os.close(fd)
+    tmp_path.rename(path)
 
 
 def delete_credentials() -> bool:
