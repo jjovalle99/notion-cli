@@ -24,7 +24,7 @@ def _resolve_rich_text(body: str | None, rich_text_json: str | None) -> list[obj
 
     from notion_cli.output import ExitCode, format_error
 
-    if body and rich_text_json:
+    if body is not None and rich_text_json is not None:
         sys.stderr.write(
             format_error(
                 "conflicting_args",
@@ -33,13 +33,11 @@ def _resolve_rich_text(body: str | None, rich_text_json: str | None) -> list[obj
             + "\n"
         )
         raise SystemExit(ExitCode.BAD_ARGS)
-    if rich_text_json:
+    if rich_text_json is not None:
         from notion_cli.parsing import parse_json
 
-        parsed = parse_json(rich_text_json, expected_type=list, label="--rich-text")
-        assert isinstance(parsed, list)
-        return parsed
-    if body:
+        return parse_json(rich_text_json, expected_type=list, label="--rich-text")  # ty: ignore[invalid-return-type]
+    if body is not None:
         return [{"text": {"content": body}}]
 
     sys.stderr.write(format_error("missing_args", "Provide --body or --rich-text.") + "\n")

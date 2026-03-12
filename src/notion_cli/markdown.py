@@ -61,7 +61,8 @@ def _block_to_md(block: dict[str, Any], number: int, depth: int = 0) -> str:
 
     if block_type == "code":
         lang = data.get("language", "")
-        return f"{indent}```{lang}\n{indent}{text}\n{indent}```"
+        indented_text = text.replace("\n", f"\n{indent}")
+        return f"{indent}```{lang}\n{indent}{indented_text}\n{indent}```"
 
     if block_type == "quote":
         return f"{indent}> {text}"
@@ -96,6 +97,24 @@ def _block_to_md(block: dict[str, Any], number: int, depth: int = 0) -> str:
         title = data.get("title", "")
         return f"{indent}[{title}](child_database)" if title else ""
 
+    if block_type == "table":
+        rows = block.get("children", [])
+        if not rows:
+            return ""
+        lines: list[str] = []
+        for i, row in enumerate(rows):
+            cells = row.get("table_row", {}).get("cells", [])
+            cols = [rich_text_to_md(c) for c in cells]
+            lines.append(f"{indent}| {' | '.join(cols)} |")
+            if i == 0:
+                lines.append(f"{indent}| {' | '.join('---' for _ in cols)} |")
+        return "\n".join(lines)
+
+    if block_type == "table_row":
+        cells = data.get("cells", [])
+        cols = [rich_text_to_md(c) for c in cells]
+        return f"{indent}| {' | '.join(cols)} |"
+
     if block_type == "table_of_contents":
         return f"{indent}[Table of Contents]"
 
@@ -127,11 +146,12 @@ def blocks_to_markdown(blocks: list[dict[str, Any]], depth: int = 0) -> str:
         line = _block_to_md(block, numbered_counter, depth)
         lines.append(line)
 
-        children = block.get("children", [])
-        if children:
-            child_md = blocks_to_markdown(children, depth + 1).rstrip("\n")
-            if child_md:
-                lines.append(child_md)
+        if block_type != "table":
+            children = block.get("children", [])
+            if children:
+                child_md = blocks_to_markdown(children, depth + 1).rstrip("\n")
+                if child_md:
+                    lines.append(child_md)
 
         prev_type = block_type
 
