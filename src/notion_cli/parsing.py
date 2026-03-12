@@ -110,6 +110,27 @@ def parse_json(value: str, *, expected_type: type, label: str) -> dict | list:
     return parsed
 
 
+def resolve_rich_text(body: str | None, rich_text_json: str | None) -> list[object]:
+    """Resolve --body / --rich-text into a Notion rich_text array."""
+    if body is not None and rich_text_json is not None:
+        sys.stderr.write(
+            format_error("conflicting_args", "--body and --rich-text are mutually exclusive.")
+            + "\n"
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
+    if rich_text_json is not None:
+        return parse_json(rich_text_json, expected_type=list, label="--rich-text")  # ty: ignore[invalid-return-type]
+    if body is not None:
+        return [{"text": {"content": body}}]
+    sys.stderr.write(format_error("missing_args", "Provide --body or --rich-text.") + "\n")
+    raise SystemExit(ExitCode.BAD_ARGS)
+
+
+def parse_fields(fields: str | None) -> set[str] | None:
+    """Parse a comma-separated fields string into a set, or None if empty."""
+    return set(fields.split(",")) if fields else None
+
+
 def validate_limit(limit: int | None) -> None:
     """Validate that --limit is >= 1 if provided."""
     if limit is not None and limit < 1:

@@ -6,6 +6,7 @@ from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import fields_option, timeout_option, token_option
 from notion_cli.output import format_json, project_fields
+from notion_cli.parsing import parse_fields
 
 team_app = typer.Typer(
     name="team",
@@ -34,7 +35,7 @@ async def list_teams(
         notion team list
     """
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:

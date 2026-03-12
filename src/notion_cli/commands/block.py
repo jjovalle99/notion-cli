@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -78,10 +78,10 @@ async def get(
         notion block get abc123 --recursive --markdown
         notion block get https://notion.so/My-Page-abc123 -r -m
     """
-    from notion_cli.parsing import validate_limit
+    from notion_cli.parsing import parse_fields, validate_limit
 
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     bid = extract_id(block_id)
     validate_limit(limit)
     if recursive and limit is not None:
@@ -96,7 +96,7 @@ async def get(
 
     from notion_client import AsyncClient
 
-    all_results: list[dict[str, object]] = []
+    all_results: list[dict[str, Any]] = []
     envelope: dict[str, object] = {}
 
     async with AsyncClient(auth=resolved_token) as client:
@@ -160,10 +160,10 @@ async def append(
         notion block append abc123 --children '[{"type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": "Hello"}}]}}]'
         notion block append abc123 -c @blocks.json
     """
-    from notion_cli.parsing import parse_json
+    from notion_cli.parsing import parse_fields, parse_json
 
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     pid = extract_id(parent_id)
     raw = read_content(children)
     block_list = parse_json(raw, expected_type=list, label="--children")
