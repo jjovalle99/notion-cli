@@ -491,6 +491,58 @@ class TestBlocks:
         assert "    line3" in result
         assert "    ```" in result
 
+    def test_column_list_renders_children_without_extra_indent(self) -> None:
+        blocks = [
+            {
+                "type": "column_list",
+                "column_list": {},
+                "children": [
+                    {
+                        "type": "column",
+                        "column": {},
+                        "children": [
+                            {
+                                "type": "paragraph",
+                                "paragraph": {
+                                    "rich_text": [
+                                        {
+                                            "type": "text",
+                                            "text": {"content": "Left column"},
+                                            "annotations": {},
+                                        }
+                                    ]
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "type": "column",
+                        "column": {},
+                        "children": [
+                            {
+                                "type": "paragraph",
+                                "paragraph": {
+                                    "rich_text": [
+                                        {
+                                            "type": "text",
+                                            "text": {"content": "Right column"},
+                                            "annotations": {},
+                                        }
+                                    ]
+                                },
+                            }
+                        ],
+                    },
+                ],
+            }
+        ]
+        result = blocks_to_markdown(blocks)
+        assert "Left column\nRight column\n" == result
+
+    def test_column_list_empty(self) -> None:
+        blocks = [{"type": "column_list", "column_list": {}, "children": []}]
+        assert blocks_to_markdown(blocks) == ""
+
     def test_unknown_block_type_renders_text(self) -> None:
         blocks = [
             {
