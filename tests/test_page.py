@@ -59,6 +59,57 @@ class TestPageGet:
         assert data == {"id": PAGE_ID, "url": "https://notion.so/page"}
 
 
+class TestPageGetFull:
+    def test_full_returns_page_blocks_comments(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.pages.retrieve.return_value = MOCK_PAGE
+        mock_client.blocks.children.list.return_value = {
+            "results": [{"id": "b1", "type": "paragraph", "has_children": False}],
+            "has_more": False,
+        }
+        mock_client.comments.list.return_value = {
+            "results": [{"id": "c1", "rich_text": []}],
+            "has_more": False,
+        }
+
+        result = runner.invoke(
+            app,
+            ["page", "get", PAGE_ID, "--full"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["page"]["id"] == PAGE_ID
+        assert len(data["blocks"]) == 1
+        assert data["blocks"][0]["id"] == "b1"
+        assert len(data["comments"]) == 1
+        assert data["comments"][0]["id"] == "c1"
+
+    def test_full_with_fields(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.pages.retrieve.return_value = MOCK_PAGE
+        mock_client.blocks.children.list.return_value = {
+            "results": [],
+            "has_more": False,
+        }
+        mock_client.comments.list.return_value = {
+            "results": [],
+            "has_more": False,
+        }
+
+        result = runner.invoke(
+            app,
+            ["page", "get", PAGE_ID, "--full", "--fields", "page"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert "page" in data
+        assert "blocks" not in data
+
+
 class TestPageCreate:
     def test_create_with_title(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.pages.create.return_value = MOCK_PAGE
