@@ -70,12 +70,15 @@ async def get(
     """List child blocks of a page or block.
 
     Returns raw JSON blocks by default. Use --markdown to convert the output
-    to readable Markdown text. Use --recursive to include nested content.
+    to readable Markdown text. Use --recursive to include nested content
+    (controlled by --depth, default 5). Note: --recursive and --limit cannot
+    be combined.
 
     Examples:
         notion block get abc123
         notion block get abc123 --markdown
         notion block get abc123 --recursive --markdown
+        notion block get abc123 --recursive --depth 2 --markdown
         notion block get https://notion.so/My-Page-abc123 -r -m
     """
     from notion_cli.parsing import parse_fields, validate_limit
