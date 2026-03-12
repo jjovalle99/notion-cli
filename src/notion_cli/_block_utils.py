@@ -21,7 +21,8 @@ _BLOCK_SERVER_FIELDS = frozenset(
     }
 )
 
-_SKIP_RECURSE_TYPES = frozenset({"child_page", "child_database"})
+_SKIP_RECURSE_TYPES = frozenset({"child_page", "child_database", "synced_block"})
+SKIP_CONTENT_TYPES = _SKIP_RECURSE_TYPES | frozenset({"unsupported"})
 
 APPEND_BATCH_SIZE = 100
 
@@ -98,7 +99,7 @@ async def fetch_recursive(
     recurse_indices = [
         i
         for i, b in enumerate(blocks)
-        if b.get("has_children") and b.get("type") not in _SKIP_RECURSE_TYPES
+        if b.get("has_children") and b.get("id") and b.get("type") not in _SKIP_RECURSE_TYPES
     ]
 
     if not recurse_indices:
@@ -124,9 +125,15 @@ async def fetch_recursive(
     return blocks
 
 
-def clean_block(block: dict[str, Any]) -> dict[str, Any]:
+def clean_block(
+    block: dict[str, Any], *, skip_types: frozenset[str] | None = None
+) -> dict[str, Any]:
     """Strip server-assigned fields from a block for re-creation via append."""
     cleaned = {k: v for k, v in block.items() if k not in _BLOCK_SERVER_FIELDS}
     if "children" in cleaned:
-        cleaned["children"] = [clean_block(c) for c in cleaned["children"]]
+        cleaned["children"] = [
+            clean_block(c, skip_types=skip_types)
+            for c in cleaned["children"]
+            if skip_types is None or c.get("type") not in skip_types
+        ]
     return cleaned
