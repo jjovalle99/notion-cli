@@ -1,6 +1,8 @@
 import json
+import pathlib
 from unittest.mock import AsyncMock
 
+import pytest
 from typer.testing import CliRunner
 
 from notion_cli.cli import app
@@ -120,17 +122,34 @@ class TestDryRunBlockAppend:
 
 
 class TestBug18AtomicCredentials:
-    def test_save_is_atomic(self) -> None:
-        from notion_cli.credentials import _credentials_path, load_credentials, save_credentials
+    def test_save_is_atomic(
+        self, tmp_path: pathlib.Path, monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        fake_path = tmp_path / "credentials.json"
+        monkeypatch.setattr("notion_cli.credentials._credentials_path", lambda: fake_path)
+
+        from notion_cli.credentials import load_credentials, save_credentials
 
         save_credentials({"access_token": "test123", "workspace_id": "w"})
         loaded = load_credentials()
         assert loaded is not None
         assert loaded["access_token"] == "test123"
 
-        path = _credentials_path()
-        assert path.exists()
-        assert oct(path.stat().st_mode & 0o777) == "0o600"
+        assert fake_path.exists()
+        assert oct(fake_path.stat().st_mode & 0o777) == "0o600"
+
+
+class TestEmptyFindRejected:
+    def test_empty_find_exits_2(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["page", "edit", PAGE_ID, "--find", "", "--replace", "x"],
+            env={"NOTION_API_KEY": "s"},
+        )
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "invalid_args"
+        mock_client.blocks.children.list.assert_not_called()
 
 
 class TestBug20PageEditRegex:

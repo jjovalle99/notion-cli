@@ -74,7 +74,7 @@ async def get(
                 raise page_result
             if isinstance(blocks_result, BaseException):
                 raise blocks_result
-            block_list = blocks_result[0] if isinstance(blocks_result, tuple) else blocks_result
+            block_list, _ = blocks_result
             comments: list[object] = []
             if not isinstance(comments_result, BaseException):
                 comments = list(comments_result.get("results") or [])
