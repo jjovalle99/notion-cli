@@ -85,7 +85,7 @@ from notion_cli._async import paginate
 async with AsyncClient(auth=resolved_token) as client:
     all_results, envelope = await paginate(client.some.list, kwargs, timeout, limit=limit)
 
-typer.echo(format_json({**envelope, "results": project_fields(all_results, fields_set), "has_more": False}))
+echo_list(project_fields(all_results, fields_set), envelope, output_format)
 ```
 
 `paginate()` handles `page_size` clamping, cursor tracking, `has_more`/`next_cursor`/`results` guards, and post-trim to the limit. If the API method requires positional arguments, use `functools.partial`:
@@ -95,7 +95,7 @@ from functools import partial
 all_results, envelope = await paginate(partial(client.data_sources.query, did), kwargs, timeout, limit=limit)
 ```
 
-Do not hand-roll pagination loops — all four existing paginated commands use this helper.
+Do not hand-roll pagination loops — all paginated commands use this helper.
 
 ### Shared helpers
 
@@ -112,7 +112,12 @@ These utilities in `parsing.py` and `_block_utils.py` should be reused, not reim
 | `fetch_children(client, block_id, timeout, limit)` | `_block_utils.py` | Fetch child blocks with optional limit |
 | `fetch_recursive(client, block_id, timeout, max_depth)` | `_block_utils.py` | Recursively fetch nested blocks (semaphore-bounded concurrency) |
 | `clean_block(block, skip_types)` | `_block_utils.py` | Strip server fields for block re-creation; filters `skip_types` recursively |
+| `flatten_blocks(blocks)` | `_block_utils.py` | Flatten recursive block tree into a flat list |
+| `replace_in_rich_text(rich_text, find, replace)` | `_block_utils.py` | Find/replace text in rich_text spans, preserving annotations |
+| `RICH_TEXT_BLOCK_TYPES` | `_block_utils.py` | Block types that have editable `rich_text` fields |
 | `SKIP_CONTENT_TYPES` | `_block_utils.py` | Block types to skip during content copy (`child_page`, `child_database`, `synced_block`, `unsupported`) |
+| `parse_where(expr, prop_type)` | `parsing.py` | Parse `--where` expression into Notion filter object |
+| `process_batch(lines, handler, fields)` | `_batch.py` | Process NDJSON stdin through an async handler with error handling |
 
 ### Registering the command
 
