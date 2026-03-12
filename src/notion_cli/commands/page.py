@@ -531,3 +531,83 @@ async def duplicate(
                 raise SystemExit(ExitCode.ERROR)
 
     typer.echo(format_json(project_fields(result, fields_set)))
+
+
+@page_app.command()
+@run_async
+async def edit(
+    page_id: Annotated[
+        str,
+        typer.Argument(help="Page ID or Notion URL to edit."),
+    ],
+    find: Annotated[
+        str,
+        typer.Option("--find", help="Text to search for in page content."),
+    ],
+    replace: Annotated[
+        str,
+        typer.Option("--replace", help="Replacement text."),
+    ],
+    dry_run: Annotated[bool, dry_run_option()] = False,
+    token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
+) -> None:
+    """Find and replace text in a page's content blocks.
+
+    Searches all text blocks (paragraphs, headings, lists, etc.) recursively
+    and replaces matching text while preserving formatting and annotations.
+
+    Examples:
+        notion page edit abc123 --find "old name" --replace "new name"
+        notion page edit abc123 --find "TODO" --replace "DONE" --dry-run
+    """
+    from notion_cli._block_utils import (
+        RICH_TEXT_BLOCK_TYPES,
+        fetch_recursive,
+        flatten_blocks,
+        replace_in_rich_text,
+    )
+
+    resolved_token = resolve_token(token=token)
+    pid = extract_id(page_id)
+
+    from notion_client import AsyncClient
+
+    async with AsyncClient(auth=resolved_token) as client:
+        blocks = await fetch_recursive(client, pid, timeout, max_depth=20)
+        flat = flatten_blocks(blocks)
+
+        modifications: list[dict[str, object]] = []
+        for block in flat:
+            btype = block.get("type", "")
+            if btype not in RICH_TEXT_BLOCK_TYPES:
+                continue
+            type_data = block.get(btype)
+            if not type_data or "rich_text" not in type_data:
+                continue
+            new_rt, changed = replace_in_rich_text(type_data["rich_text"], find, replace)
+            if changed:
+                modifications.append({"block_id": block["id"], "type": btype, "rich_text": new_rt})
+
+        if dry_run:
+            typer.echo(
+                format_json(
+                    {
+                        "dry_run": True,
+                        "command": "page edit",
+                        "blocks_would_modify": len(modifications),
+                        "block_ids": [m["block_id"] for m in modifications],
+                    }
+                )
+            )
+            raise SystemExit(ExitCode.OK)
+
+        for mod in modifications:
+            await await_with_timeout(
+                client.blocks.update(
+                    mod["block_id"], **{mod["type"]: {"rich_text": mod["rich_text"]}}
+                ),
+                timeout,
+            )
+
+    typer.echo(format_json({"blocks_modified": len(modifications)}))
