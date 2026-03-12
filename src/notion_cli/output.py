@@ -36,6 +36,13 @@ def project_fields(data: object, fields: set[str] | None) -> object:
     return data
 
 
+def stream_ndjson_page(items: list[object], fields: set[str] | None) -> None:
+    """Write a page of items to stdout as NDJSON, flushing immediately."""
+    for item in items:
+        sys.stdout.write(format_json(project_fields(item, fields)) + "\n")
+    sys.stdout.flush()
+
+
 def echo_dry_run(command: str, payload: dict[str, object]) -> None:
     """Print the dry-run payload and exit."""
     import typer

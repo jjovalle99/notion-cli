@@ -1,6 +1,6 @@
 import asyncio
 import functools
-from collections.abc import Callable, Coroutine
+from collections.abc import AsyncIterator, Callable, Coroutine
 
 import typer
 
@@ -58,6 +58,42 @@ async def paginate(
     if limit is not None:
         all_results = all_results[:limit]
     return all_results, envelope
+
+
+async def paginate_stream(
+    method: Callable[..., Coroutine[object, object, dict[str, object]]],
+    kwargs: dict[str, object],
+    timeout: float | None,
+    *,
+    limit: int | None = None,
+) -> AsyncIterator[list[object]]:
+    """Paginate a Notion API list method, yielding each page's results."""
+    kwargs = dict(kwargs)
+    if limit is not None:
+        kwargs["page_size"] = min(limit, 100)
+
+    result = await await_with_timeout(method(**kwargs), timeout)
+    page_results = list(result.get("results") or [])
+    total = len(page_results)
+    if limit is not None:
+        page_results = page_results[:limit]
+    yield page_results
+
+    while (
+        result.get("has_more")
+        and result.get("next_cursor")
+        and result.get("results")
+        and (limit is None or total < limit)
+    ):
+        kwargs["start_cursor"] = result["next_cursor"]
+        if limit is not None:
+            kwargs["page_size"] = min(limit - total, 100)
+        result = await await_with_timeout(method(**kwargs), timeout)
+        page_results = list(result.get("results") or [])
+        total += len(page_results)
+        if limit is not None:
+            page_results = page_results[: limit - (total - len(page_results))]
+        yield page_results
 
 
 def run_async[**P](fn: Callable[P, Coroutine[object, object, None]]) -> Callable[P, None]:
