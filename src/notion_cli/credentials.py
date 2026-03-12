@@ -25,7 +25,11 @@ def save_credentials(data: dict[str, str]) -> None:
         os.write(fd, json.dumps(data).encode())
     finally:
         os.close(fd)
-    tmp_path.rename(path)
+    try:
+        tmp_path.rename(path)
+    except OSError:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def delete_credentials() -> bool:

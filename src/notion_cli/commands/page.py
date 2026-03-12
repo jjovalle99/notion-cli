@@ -67,13 +67,14 @@ async def get(
             page_coro = await_with_timeout(client.pages.retrieve(pid), timeout)
             blocks_coro = fetch_children(client, pid, timeout)
             comments_coro = await_with_timeout(client.comments.list(block_id=pid), timeout)
-            page_result, (block_list, _), comments_result = await asyncio.gather(
+            page_result, blocks_result, comments_result = await asyncio.gather(
                 page_coro, blocks_coro, comments_coro, return_exceptions=True
             )
             if isinstance(page_result, BaseException):
                 raise page_result
-            if isinstance(block_list, BaseException):
-                raise block_list
+            if isinstance(blocks_result, BaseException):
+                raise blocks_result
+            block_list = blocks_result[0] if isinstance(blocks_result, tuple) else blocks_result
             comments: list[object] = []
             if not isinstance(comments_result, BaseException):
                 comments = list(comments_result.get("results") or [])
@@ -632,7 +633,14 @@ async def edit(
 
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
-    compiled = re.compile(find) if regex else None
+    if regex:
+        try:
+            compiled = re.compile(find)
+        except re.error as exc:
+            typer.echo(format_error("invalid_args", f"Invalid regex: {exc}"), err=True)
+            raise SystemExit(ExitCode.BAD_ARGS)
+    else:
+        compiled = None
 
     from notion_client import AsyncClient
 
@@ -724,10 +732,14 @@ async def grep(
     pid = extract_id(page_id)
 
     flags = re.IGNORECASE if ignore_case else 0
-    if regex:
-        compiled = re.compile(pattern, flags)
-    else:
-        compiled = re.compile(re.escape(pattern), flags)
+    try:
+        if regex:
+            compiled = re.compile(pattern, flags)
+        else:
+            compiled = re.compile(re.escape(pattern), flags)
+    except re.error as exc:
+        typer.echo(format_error("invalid_args", f"Invalid regex: {exc}"), err=True)
+        raise SystemExit(ExitCode.BAD_ARGS)
 
     from notion_client import AsyncClient
 
@@ -755,7 +767,7 @@ async def grep(
             {"start": m.start(), "end": m.end(), "text": m.group()}
             for m in compiled.finditer(text)
         ]
-        if matches:
+        if matches and block.get("id"):
             results.append(
                 {
                     "block_id": block["id"],

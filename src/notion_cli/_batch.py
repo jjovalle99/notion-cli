@@ -44,6 +44,14 @@ async def process_batch(
             failures += 1
             write_error(format_error("invalid_json", f"Bad JSON on input line: {exc.args[0]}"))
             continue
+        if not isinstance(item, dict):
+            failures += 1
+            write_error(
+                format_error(
+                    "invalid_json", f"Each line must be a JSON object, got {type(item).__name__}."
+                )
+            )
+            continue
         try:
             result = await handler(item)
             write_result(format_json(project_fields(result, fields)))
