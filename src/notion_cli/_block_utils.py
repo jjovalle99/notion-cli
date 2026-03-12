@@ -125,14 +125,20 @@ async def fetch_recursive(
     return blocks
 
 
+_MAX_CLEAN_DEPTH = 50
+
+
 def clean_block(
-    block: dict[str, Any], *, skip_types: frozenset[str] | None = None
+    block: dict[str, Any], *, skip_types: frozenset[str] | None = None, _depth: int = 0
 ) -> dict[str, Any]:
     """Strip server-assigned fields from a block for re-creation via append."""
+    if _depth > _MAX_CLEAN_DEPTH:
+        msg = f"Block nesting exceeds maximum depth ({_MAX_CLEAN_DEPTH})"
+        raise ValueError(msg)
     cleaned = {k: v for k, v in block.items() if k not in _BLOCK_SERVER_FIELDS}
     if "children" in cleaned:
         cleaned["children"] = [
-            clean_block(c, skip_types=skip_types)
+            clean_block(c, skip_types=skip_types, _depth=_depth + 1)
             for c in cleaned["children"]
             if skip_types is None or c.get("type") not in skip_types
         ]

@@ -4,8 +4,8 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import timeout_option, token_option
-from notion_cli.output import format_json, project_fields
+from notion_cli.options import fields_option, timeout_option, token_option
+from notion_cli.output import ExitCode, format_error, format_json, project_fields
 from notion_cli.parsing import extract_id
 
 
@@ -28,10 +28,7 @@ async def get(
             help="Database ID or Notion URL. Example: 'abc123' or a full Notion database URL.",
         ),
     ],
-    fields: Annotated[
-        str | None,
-        typer.Option("--fields", help="Comma-separated list of fields to include in output."),
-    ] = None,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -185,10 +182,7 @@ async def create(
             ),
         ),
     ] = None,
-    fields: Annotated[
-        str | None,
-        typer.Option("--fields", help="Comma-separated list of fields to include in output."),
-    ] = None,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -246,10 +240,7 @@ async def update(
             help="Updated properties schema as a JSON string.",
         ),
     ] = None,
-    fields: Annotated[
-        str | None,
-        typer.Option("--fields", help="Comma-separated list of fields to include in output."),
-    ] = None,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -261,6 +252,7 @@ async def update(
         notion db update abc123 --title "Renamed DB"
         notion db update abc123 --properties '{"Priority": {"select": {}}}'
     """
+
     resolved_token = resolve_token(token=token)
     fields_set = set(fields.split(",")) if fields else None
     did = extract_id(db_id)
@@ -272,6 +264,12 @@ async def update(
         from notion_cli.parsing import parse_json
 
         kwargs["properties"] = parse_json(properties, expected_type=dict, label="--properties")
+
+    if not kwargs:
+        typer.echo(
+            format_error("missing_args", "Provide at least --title or --properties."), err=True
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
 
     from notion_client import AsyncClient
 

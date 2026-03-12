@@ -230,6 +230,17 @@ class TestCleanBlock:
         assert len(cleaned["children"]) == 1
         assert "id" not in cleaned["children"][0]
 
+    def test_deep_nesting_raises_value_error(self) -> None:
+        block: dict[str, object] = {"type": "toggle", "toggle": {"rich_text": []}}
+        current = block
+        for _ in range(60):
+            child: dict[str, object] = {"type": "toggle", "toggle": {"rich_text": []}}
+            current["children"] = [child]
+            current = child
+
+        with pytest.raises(ValueError, match="depth"):
+            clean_block(block)
+
     def test_filters_skip_types_from_nested_children(self) -> None:
         from notion_cli._block_utils import SKIP_CONTENT_TYPES
 
