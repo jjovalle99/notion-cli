@@ -1,4 +1,5 @@
 import asyncio
+import re
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
@@ -145,9 +146,16 @@ RICH_TEXT_BLOCK_TYPES = frozenset(
 
 
 def replace_in_rich_text(
-    rich_text: list[dict[str, Any]], find: str, replace: str
+    rich_text: list[dict[str, Any]],
+    find: str,
+    replace: str,
+    *,
+    pattern: "re.Pattern[str] | None" = None,
 ) -> tuple[list[dict[str, Any]], bool]:
     """Replace text within rich_text spans, preserving annotations and links.
+
+    Args:
+        pattern: If provided, use regex substitution instead of literal find/replace.
 
     Returns:
         A tuple of (new_rich_text, changed). If no match found, returns the
@@ -164,11 +172,18 @@ def replace_in_rich_text(
             result.append(span)
             continue
         content = text_data.get("content", "")
-        if find not in content:
+        if pattern is not None:
+            new_content = pattern.sub(replace, content)
+        elif find in content:
+            new_content = content.replace(find, replace)
+        else:
+            result.append(span)
+            continue
+        if new_content == content:
             result.append(span)
             continue
         changed = True
-        new_span = {**span, "text": {**span["text"], "content": content.replace(find, replace)}}
+        new_span = {**span, "text": {**span["text"], "content": new_content}}
         result.append(new_span)
     if not changed:
         return rich_text, False
