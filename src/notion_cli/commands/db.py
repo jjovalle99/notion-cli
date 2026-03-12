@@ -86,6 +86,19 @@ async def query(
             ),
         ),
     ] = None,
+    where: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--where",
+            "-w",
+            help=(
+                "Human-friendly filter expression. Format: 'Property operator value'. "
+                "Operators: =, !=, >, <, >=, <=, contains, before, after. "
+                "Repeat for AND logic. Fetches DB schema to resolve property types. "
+                "Example: --where 'Status = Done' --where 'Priority > 3'"
+            ),
+        ),
+    ] = None,
     sort: Annotated[
         str | None,
         typer.Option(
@@ -127,10 +140,10 @@ async def query(
     multi-level sorting.
 
     Examples:
-        notion db query aabbccdd11223344556677889900aabb
+        notion db query abc123 --where "Status = Done"
+        notion db query abc123 --where "Status = Done" --where "Priority > 3"
         notion db query abc123 --filter '{"property": "Status", "select": {"equals": "Done"}}'
         notion db query abc123 --sort '[{"property": "Date", "direction": "descending"}]'
-        notion db query abc123 --stream
     """
 
     from notion_cli.parsing import parse_json, validate_limit
@@ -139,6 +152,13 @@ async def query(
     fields_set = parse_fields(fields)
     did = extract_id(db_id)
     validate_limit(limit)
+
+    if where and filter is not None:
+        typer.echo(
+            format_error("conflicting_args", "--where and --filter are mutually exclusive."),
+            err=True,
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
 
     kwargs: dict[str, object] = {}
     if filter is not None:
@@ -149,6 +169,24 @@ async def query(
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
+        if where:
+            from notion_cli.parsing import parse_where
+
+            schema = await await_with_timeout(client.databases.retrieve(did), timeout)
+            props = schema.get("properties") or {}
+            sorted_names = sorted(props, key=len, reverse=True)
+            filters: list[dict[str, object]] = []
+            for expr in where:
+                prop_type = "rich_text"
+                for name in sorted_names:
+                    if expr.startswith(name):
+                        prop_type = props[name].get("type", "rich_text")
+                        break
+                filters.append(parse_where(expr, prop_type))
+            if len(filters) == 1:
+                kwargs["filter"] = filters[0]
+            else:
+                kwargs["filter"] = {"and": filters}
         if stream:
             async for page_results in paginate_stream(
                 partial(client.data_sources.query, did), kwargs, timeout, limit=limit

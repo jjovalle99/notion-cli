@@ -142,3 +142,60 @@ def validate_limit(limit: int | None) -> None:
             + "\n"
         )
         raise SystemExit(ExitCode.BAD_ARGS)
+
+
+_WHERE_OPS: list[tuple[str, str]] = [
+    (">=", "greater_than_or_equal_to"),
+    ("<=", "less_than_or_equal_to"),
+    ("!=", "does_not_equal"),
+    (">", "greater_than"),
+    ("<", "less_than"),
+    ("=", "equals"),
+    (" contains ", "contains"),
+    (" before ", "before"),
+    (" after ", "after"),
+]
+
+_NUMBER_FILTER_TYPES = frozenset({"number"})
+_BOOL_FILTER_TYPES = frozenset({"checkbox"})
+
+
+def _coerce_value(value: str, prop_type: str) -> object:
+    if prop_type in _BOOL_FILTER_TYPES:
+        return value.lower() == "true"
+    if prop_type in _NUMBER_FILTER_TYPES:
+        try:
+            return int(value)
+        except ValueError:
+            return float(value)
+    return value
+
+
+def parse_where(expr: str, prop_type: str) -> dict[str, object]:
+    """Parse a human-friendly where expression into a Notion filter object.
+
+    Args:
+        expr: Expression like "Status = Done" or "Priority > 3".
+        prop_type: Notion property type (select, number, checkbox, etc.).
+    """
+    for op_token, notion_op in _WHERE_OPS:
+        if op_token.startswith(" "):
+            idx = expr.find(op_token)
+            if idx == -1:
+                continue
+            prop = expr[:idx].strip()
+            value = expr[idx + len(op_token) :].strip()
+            if not prop or not value:
+                continue
+        else:
+            parts = expr.split(op_token, 1)
+            if len(parts) != 2:
+                continue
+            prop = parts[0].strip()
+            value = parts[1].strip()
+            if not prop or not value:
+                continue
+        coerced = _coerce_value(value, prop_type)
+        return {"property": prop, prop_type: {notion_op: coerced}}
+    msg = f"Cannot parse --where expression: {expr!r}"
+    raise ValueError(msg)
