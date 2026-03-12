@@ -25,6 +25,41 @@ async def await_with_timeout[T](coro: Coroutine[object, object, T], timeout: flo
     return await coro
 
 
+async def paginate(
+    method: Callable[..., Coroutine[object, object, dict[str, object]]],
+    kwargs: dict[str, object],
+    timeout: float | None,
+    *,
+    limit: int | None = None,
+) -> tuple[list[object], dict[str, object]]:
+    """Paginate a Notion API list method, collecting all results."""
+    kwargs = dict(kwargs)
+    if limit is not None:
+        kwargs["page_size"] = min(limit, 100)
+
+    result = await await_with_timeout(method(**kwargs), timeout)
+    all_results: list[object] = list(result.get("results") or [])
+
+    while (
+        result.get("has_more")
+        and result.get("next_cursor")
+        and result.get("results")
+        and (limit is None or len(all_results) < limit)
+    ):
+        kwargs["start_cursor"] = result["next_cursor"]
+        if limit is not None:
+            kwargs["page_size"] = min(limit - len(all_results), 100)
+        result = await await_with_timeout(method(**kwargs), timeout)
+        all_results.extend(result.get("results") or [])
+
+    envelope: dict[str, object] = {
+        k: v for k, v in result.items() if k not in ("results", "has_more")
+    }
+    if limit is not None:
+        all_results = all_results[:limit]
+    return all_results, envelope
+
+
 def run_async[**P](fn: Callable[P, Coroutine[object, object, None]]) -> Callable[P, None]:
     """Wrap an async function so Typer can call it synchronously."""
 

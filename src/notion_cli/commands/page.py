@@ -7,7 +7,7 @@ from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import fields_option, timeout_option, token_option
 from notion_cli.output import ExitCode, format_error, format_json, project_fields
-from notion_cli.parsing import extract_id, read_content
+from notion_cli.parsing import extract_id, parse_fields, read_content
 
 _READ_ONLY_TYPES = frozenset(
     {"formula", "rollup", "created_time", "last_edited_time", "created_by", "last_edited_by"}
@@ -47,7 +47,7 @@ async def get(
         notion page get https://notion.so/My-Page-abc123def456abc123def456abc123de
     """
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     pid = extract_id(page_id)
     from notion_client import AsyncClient
 
@@ -124,7 +124,7 @@ async def create(
     """
 
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     parent_id = extract_id(parent)
 
     parent_key = f"{parent_type}_id"
@@ -209,7 +209,7 @@ async def update(
     """
 
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     pid = extract_id(page_id)
 
     kwargs: dict[str, object] = {"page_id": pid}
@@ -272,7 +272,7 @@ async def move(
         notion page move abc123 --to https://notion.so/New-Parent-def456
     """
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     pid = extract_id(page_id)
     new_parent_id = extract_id(to)
 
@@ -335,7 +335,7 @@ async def duplicate(
         notion page duplicate abc123 --destination def456
     """
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     pid = extract_id(page_id)
     dest_id = extract_id(destination) if destination else None
     if destination_type != "page" and not dest_id:
