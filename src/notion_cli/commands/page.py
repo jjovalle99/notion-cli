@@ -32,28 +32,53 @@ async def get(
             help="Page ID or Notion URL. Example: 'abc123' or 'https://notion.so/My-Page-abc123'.",
         ),
     ],
+    full: Annotated[
+        bool,
+        typer.Option(
+            "--full",
+            help="Return page metadata, content blocks, and comments in one call.",
+        ),
+    ] = False,
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Retrieve a single Notion page by ID or URL.
 
-    Returns the full page object including properties, parent, timestamps,
-    and URL. Does not include page content blocks — use 'notion block get'
-    for that.
+    Returns the page object including properties, parent, timestamps,
+    and URL. Use --full to also fetch content blocks and comments.
 
     Examples:
-        notion page get abc123def456abc123def456abc123de
-        notion page get https://notion.so/My-Page-abc123def456abc123def456abc123de
+        notion page get abc123
+        notion page get abc123 --full
+        notion page get https://notion.so/My-Page-abc123
     """
+    import asyncio
+
     resolved_token = resolve_token(token=token)
     fields_set = parse_fields(fields)
     pid = extract_id(page_id)
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.pages.retrieve(pid), timeout)
-    typer.echo(format_json(project_fields(result, fields_set)))
+        if full:
+            from notion_cli._block_utils import fetch_children
+
+            page_coro = await_with_timeout(client.pages.retrieve(pid), timeout)
+            blocks_coro = fetch_children(client, pid, timeout)
+            comments_coro = await_with_timeout(client.comments.list(block_id=pid), timeout)
+            page_result, (block_list, _), comments_result = await asyncio.gather(
+                page_coro, blocks_coro, comments_coro
+            )
+            combined: dict[str, object] = {
+                "page": page_result,
+                "blocks": block_list,
+                "comments": list(comments_result.get("results") or []),
+            }
+            typer.echo(format_json(project_fields(combined, fields_set)))
+        else:
+            result = await await_with_timeout(client.pages.retrieve(pid), timeout)
+            typer.echo(format_json(project_fields(result, fields_set)))
 
 
 @page_app.command()
