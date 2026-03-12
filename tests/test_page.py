@@ -386,6 +386,35 @@ class TestPageDuplicate:
         create_kwargs = mock_client.pages.create.call_args.kwargs
         assert create_kwargs["parent"] == {"page_id": NEW_PARENT_ID}
 
+    def test_duplicate_with_destination_database(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        mock_client.pages.retrieve.return_value = {
+            **MOCK_PAGE,
+            "parent": {"page_id": PARENT_ID},
+            "icon": None,
+            "cover": None,
+        }
+        mock_client.pages.create.return_value = {**MOCK_PAGE, "id": "new-page-id"}
+
+        result = runner.invoke(
+            app,
+            [
+                "page",
+                "duplicate",
+                PAGE_ID,
+                "--destination",
+                NEW_PARENT_ID,
+                "--destination-type",
+                "database",
+            ],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        create_kwargs = mock_client.pages.create.call_args.kwargs
+        assert create_kwargs["parent"] == {"database_id": NEW_PARENT_ID}
+
     def test_duplicate_with_content(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.pages.retrieve.return_value = {
             **MOCK_PAGE,

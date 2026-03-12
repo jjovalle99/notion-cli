@@ -180,6 +180,18 @@ class TestDbUpdate:
 
         assert result.exit_code == 0
 
+    def test_update_no_args_rejected(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["db", "update", DB_ID],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "missing_args"
+        mock_client.data_sources.update.assert_not_called()
+
     def test_update_properties(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.data_sources.update.return_value = MOCK_DB
         props_json = '{"Priority": {"select": {}}}'
