@@ -42,6 +42,66 @@ class TestCommentList:
         data = json.loads(result.stdout)
         assert len(data["results"]) == 1
 
+    def test_list_with_limit(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.comments.list.return_value = {
+            "results": [
+                {"id": "c-1", "object": "comment"},
+                {"id": "c-2", "object": "comment"},
+                {"id": "c-3", "object": "comment"},
+            ],
+            "has_more": False,
+        }
+
+        result = runner.invoke(
+            app, ["comment", "list", PAGE_ID, "--limit", "2"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["results"]) == 2
+
+    def test_list_limit_sets_page_size(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.comments.list.return_value = {
+            "results": [MOCK_COMMENT],
+            "has_more": False,
+        }
+
+        runner.invoke(
+            app, ["comment", "list", PAGE_ID, "--limit", "5"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        call_kwargs = mock_client.comments.list.call_args.kwargs
+        assert call_kwargs["page_size"] == 5
+
+    def test_list_limit_stops_pagination_early(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        page1 = {"results": [MOCK_COMMENT], "has_more": True, "next_cursor": "cur1"}
+        page2 = {
+            "results": [{"id": "c-2", "object": "comment"}],
+            "has_more": True,
+            "next_cursor": "cur2",
+        }
+        mock_client.comments.list.side_effect = [page1, page2]
+
+        result = runner.invoke(
+            app, ["comment", "list", PAGE_ID, "--limit", "2"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["results"]) == 2
+        assert mock_client.comments.list.call_count == 2
+
+    def test_list_limit_zero_rejected(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app, ["comment", "list", PAGE_ID, "--limit", "0"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "invalid_args"
+
     def test_list_paginates(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         page1 = {"results": [MOCK_COMMENT], "has_more": True, "next_cursor": "cursor-abc"}
         page2 = {

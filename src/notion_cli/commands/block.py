@@ -40,6 +40,14 @@ async def get(
             help="Output content as Markdown instead of raw JSON blocks.",
         ),
     ] = False,
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit",
+            "-l",
+            help="Maximum number of blocks to return. Omit to return all.",
+        ),
+    ] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -54,22 +62,39 @@ async def get(
         notion block get abc123 --markdown
         notion block get https://notion.so/My-Page-abc123 -m
     """
+    from notion_cli.parsing import validate_limit
+
     resolved_token = resolve_token(token=token)
     bid = extract_id(block_id)
-    all_results: list[dict[str, object]] = []
+    validate_limit(limit)
+
+    kwargs: dict[str, object] = {}
+    if limit is not None:
+        kwargs["page_size"] = min(limit, 100)
+
+    all_results: list[object] = []
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.blocks.children.list(bid), timeout)
+        result = await await_with_timeout(client.blocks.children.list(bid, **kwargs), timeout)
         all_results.extend(result.get("results") or [])
 
-        while result.get("has_more") and result.get("next_cursor") and result.get("results"):
-            result = await await_with_timeout(
-                client.blocks.children.list(bid, start_cursor=result["next_cursor"]), timeout
-            )
+        while (
+            result.get("has_more")
+            and result.get("next_cursor")
+            and result.get("results")
+            and (limit is None or len(all_results) < limit)
+        ):
+            kwargs["start_cursor"] = result["next_cursor"]
+            if limit is not None:
+                kwargs["page_size"] = min(limit - len(all_results), 100)
+            result = await await_with_timeout(client.blocks.children.list(bid, **kwargs), timeout)
             all_results.extend(result.get("results") or [])
 
         envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
+
+    if limit is not None:
+        all_results = all_results[:limit]
 
     if markdown:
         from notion_cli.markdown import blocks_to_markdown
