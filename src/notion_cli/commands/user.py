@@ -2,11 +2,11 @@ from typing import Annotated
 
 import typer
 
-from notion_cli._async import await_with_timeout, run_async
+from notion_cli._async import await_with_timeout, paginate, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import fields_option, timeout_option, token_option
 from notion_cli.output import format_json, project_fields
-from notion_cli.parsing import extract_id
+from notion_cli.parsing import extract_id, parse_fields
 
 user_app = typer.Typer(
     name="user",
@@ -45,36 +45,14 @@ async def list_users(
     from notion_cli.parsing import validate_limit
 
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     validate_limit(limit)
-    kwargs: dict[str, object] = {}
-    if limit is not None:
-        kwargs["page_size"] = min(limit, 100)
 
-    all_results: list[object] = []
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.users.list(**kwargs), timeout)
-        all_results.extend(result.get("results") or [])
+        all_results, envelope = await paginate(client.users.list, {}, timeout, limit=limit)
 
-        while (
-            result.get("has_more")
-            and result.get("next_cursor")
-            and result.get("results")
-            and (limit is None or len(all_results) < limit)
-        ):
-            if limit is not None:
-                kwargs["page_size"] = min(limit - len(all_results), 100)
-            result = await await_with_timeout(
-                client.users.list(start_cursor=result["next_cursor"], **kwargs), timeout
-            )
-            all_results.extend(result.get("results") or [])
-
-        envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
-
-    if limit is not None:
-        all_results = all_results[:limit]
     typer.echo(
         format_json(
             {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
@@ -101,7 +79,7 @@ async def get(
         notion user get aabbccdd-1122-3344-5566-778899001122
     """
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     uid = extract_id(user_id)
     from notion_client import AsyncClient
 
@@ -126,7 +104,7 @@ async def me(
         notion user me
     """
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:

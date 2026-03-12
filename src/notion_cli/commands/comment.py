@@ -6,7 +6,7 @@ from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import fields_option, timeout_option, token_option
 from notion_cli.output import format_json, project_fields
-from notion_cli.parsing import extract_id
+from notion_cli.parsing import extract_id, parse_fields, resolve_rich_text
 
 comment_app = typer.Typer(
     name="comment",
@@ -17,31 +17,6 @@ comment_app = typer.Typer(
     ),
     no_args_is_help=True,
 )
-
-
-def _resolve_rich_text(body: str | None, rich_text_json: str | None) -> list[object]:
-    import sys
-
-    from notion_cli.output import ExitCode, format_error
-
-    if body is not None and rich_text_json is not None:
-        sys.stderr.write(
-            format_error(
-                "conflicting_args",
-                "--body and --rich-text are mutually exclusive.",
-            )
-            + "\n"
-        )
-        raise SystemExit(ExitCode.BAD_ARGS)
-    if rich_text_json is not None:
-        from notion_cli.parsing import parse_json
-
-        return parse_json(rich_text_json, expected_type=list, label="--rich-text")  # ty: ignore[invalid-return-type]
-    if body is not None:
-        return [{"text": {"content": body}}]
-
-    sys.stderr.write(format_error("missing_args", "Provide --body or --rich-text.") + "\n")
-    raise SystemExit(ExitCode.BAD_ARGS)
 
 
 @comment_app.command()
@@ -80,9 +55,9 @@ async def add(
         notion comment add abc123 --rich-text '[{"text": {"content": "bold"}, "annotations": {"bold": true}}]'
     """
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     pid = extract_id(page_id)
-    rt = _resolve_rich_text(body, rich_text)
+    rt = resolve_rich_text(body, rich_text)
 
     from notion_client import AsyncClient
 
@@ -130,9 +105,9 @@ async def reply(
         notion comment reply disc-abc123 --rich-text '[{"text": {"content": "done"}}]'
     """
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     did = extract_id(discussion_id)
-    rt = _resolve_rich_text(body, rich_text)
+    rt = resolve_rich_text(body, rich_text)
 
     from notion_client import AsyncClient
 
@@ -172,40 +147,21 @@ async def list_comments(
         notion comment list abc123
         notion comment list https://notion.so/My-Page-abc123
     """
+    from notion_cli._async import paginate
     from notion_cli.parsing import validate_limit
 
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     pid = extract_id(page_id)
     validate_limit(limit)
 
-    kwargs: dict[str, object] = {"block_id": pid}
-    if limit is not None:
-        kwargs["page_size"] = min(limit, 100)
-
-    all_results: list[object] = []
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.comments.list(**kwargs), timeout)
-        all_results.extend(result.get("results") or [])
+        all_results, envelope = await paginate(
+            client.comments.list, {"block_id": pid}, timeout, limit=limit
+        )
 
-        while (
-            result.get("has_more")
-            and result.get("next_cursor")
-            and result.get("results")
-            and (limit is None or len(all_results) < limit)
-        ):
-            kwargs["start_cursor"] = result["next_cursor"]
-            if limit is not None:
-                kwargs["page_size"] = min(limit - len(all_results), 100)
-            result = await await_with_timeout(client.comments.list(**kwargs), timeout)
-            all_results.extend(result.get("results") or [])
-
-        envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
-
-    if limit is not None:
-        all_results = all_results[:limit]
     typer.echo(
         format_json(
             {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
