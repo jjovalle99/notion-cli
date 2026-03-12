@@ -19,6 +19,7 @@ _LAZY_GROUPS: dict[str, tuple[str, str]] = {
 _LAZY_COMMANDS: dict[str, tuple[str, str]] = {
     "search": ("notion_cli.commands.search", "search"),
     "schema": ("notion_cli.commands.schema", "schema"),
+    "api": ("notion_cli.commands.api", "api"),
 }
 
 _LAZY_ALL = {**_LAZY_GROUPS, **_LAZY_COMMANDS}
