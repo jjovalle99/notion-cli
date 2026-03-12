@@ -1,12 +1,13 @@
+from functools import partial
 from typing import Annotated
 
 import typer
 
-from notion_cli._async import await_with_timeout, run_async
+from notion_cli._async import await_with_timeout, paginate, run_async
 from notion_cli.auth import resolve_token
 from notion_cli.options import fields_option, timeout_option, token_option
 from notion_cli.output import ExitCode, format_error, format_json, project_fields
-from notion_cli.parsing import extract_id
+from notion_cli.parsing import extract_id, parse_fields
 
 
 db_app = typer.Typer(
@@ -42,7 +43,7 @@ async def get(
         notion db get https://notion.so/myworkspace/aabbccdd11223344556677889900aabb?v=...
     """
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     did = extract_id(db_id)
     from notion_client import AsyncClient
 
@@ -108,10 +109,11 @@ async def query(
         notion db query abc123 --filter '{"property": "Status", "select": {"equals": "Done"}}'
         notion db query abc123 --sort '[{"property": "Date", "direction": "descending"}]'
     """
+
     from notion_cli.parsing import parse_json, validate_limit
 
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     did = extract_id(db_id)
     validate_limit(limit)
 
@@ -120,32 +122,14 @@ async def query(
         kwargs["filter"] = parse_json(filter, expected_type=dict, label="--filter")
     if sort is not None:
         kwargs["sorts"] = parse_json(sort, expected_type=list, label="--sort")
-    if limit is not None:
-        kwargs["page_size"] = min(limit, 100)
 
-    all_results: list[object] = []
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.data_sources.query(did, **kwargs), timeout)
-        all_results.extend(result.get("results") or [])
+        all_results, envelope = await paginate(
+            partial(client.data_sources.query, did), kwargs, timeout, limit=limit
+        )
 
-        while (
-            result.get("has_more")
-            and result.get("next_cursor")
-            and result.get("results")
-            and (limit is None or len(all_results) < limit)
-        ):
-            kwargs["start_cursor"] = result["next_cursor"]
-            if limit is not None:
-                kwargs["page_size"] = min(limit - len(all_results), 100)
-            result = await await_with_timeout(client.data_sources.query(did, **kwargs), timeout)
-            all_results.extend(result.get("results") or [])
-
-        envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
-
-    if limit is not None:
-        all_results = all_results[:limit]
     typer.echo(
         format_json(
             {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
@@ -196,7 +180,7 @@ async def create(
         notion db create -p abc123 -t "Tracker" --properties '{"Status": {"select": {}}}'
     """
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     parent_id = extract_id(parent)
 
     kwargs: dict[str, object] = {
@@ -254,7 +238,7 @@ async def update(
     """
 
     resolved_token = resolve_token(token=token)
-    fields_set = set(fields.split(",")) if fields else None
+    fields_set = parse_fields(fields)
     did = extract_id(db_id)
 
     kwargs: dict[str, object] = {}
