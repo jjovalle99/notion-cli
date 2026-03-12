@@ -289,7 +289,7 @@ async def move(
     typer.echo(format_json(project_fields(result, fields_set)))
 
 
-_SKIP_CONTENT_TYPES = frozenset({"child_page", "child_database", "unsupported"})
+_SKIP_CONTENT_TYPES = frozenset({"child_page", "child_database", "synced_block", "unsupported"})
 
 
 @page_app.command()
@@ -358,9 +358,18 @@ async def duplicate(
         if with_content:
             from notion_cli._block_utils import APPEND_BATCH_SIZE, clean_block, fetch_recursive
 
+            new_page_id = result.get("id")
+            if not new_page_id:
+                typer.echo(
+                    format_error(
+                        "invalid_response",
+                        "Page created but response missing 'id'; cannot copy content.",
+                    ),
+                    err=True,
+                )
+                raise SystemExit(ExitCode.ERROR)
             blocks = await fetch_recursive(client, pid, timeout, max_depth=20)
             cleaned = [clean_block(b) for b in blocks if b.get("type") not in _SKIP_CONTENT_TYPES]
-            new_page_id = result.get("id", "")
             for i in range(0, len(cleaned), APPEND_BATCH_SIZE):
                 batch = cleaned[i : i + APPEND_BATCH_SIZE]
                 await await_with_timeout(

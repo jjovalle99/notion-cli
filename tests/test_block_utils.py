@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -98,6 +99,19 @@ class TestFetchRecursive:
         assert "children" not in blocks[0]
         assert client.blocks.children.list.call_count == 1
 
+    def test_skips_synced_block(self, client: AsyncMock) -> None:
+        client.blocks.children.list.return_value = {
+            "results": [
+                {"id": "sb", "type": "synced_block", "has_children": True},
+            ],
+            "has_more": False,
+        }
+
+        blocks = asyncio.run(fetch_recursive(client, BLOCK_ID, timeout=None))
+
+        assert "children" not in blocks[0]
+        assert client.blocks.children.list.call_count == 1
+
     def test_skips_child_database(self, client: AsyncMock) -> None:
         client.blocks.children.list.return_value = {
             "results": [
@@ -109,6 +123,46 @@ class TestFetchRecursive:
         blocks = asyncio.run(fetch_recursive(client, BLOCK_ID, timeout=None))
 
         assert "children" not in blocks[0]
+
+    def test_gather_exception_propagates_cleanly(self, client: AsyncMock) -> None:
+        top_level = {
+            "results": [
+                {"id": "ok-block", "type": "toggle", "has_children": True},
+                {"id": "bad-block", "type": "toggle", "has_children": True},
+            ],
+            "has_more": False,
+        }
+        ok_children = {
+            "results": [{"id": "c1", "type": "paragraph", "has_children": False}],
+            "has_more": False,
+        }
+
+        async def side_effect(block_id: str, **kwargs: object) -> dict[str, Any]:
+            if block_id == BLOCK_ID:
+                return top_level
+            if block_id == "ok-block":
+                return ok_children
+            raise RuntimeError("API failure")
+
+        client.blocks.children.list.side_effect = side_effect
+
+        with pytest.raises(RuntimeError, match="API failure"):
+            asyncio.run(fetch_recursive(client, BLOCK_ID, timeout=None))
+
+    def test_skips_block_missing_id(self, client: AsyncMock) -> None:
+        client.blocks.children.list.return_value = {
+            "results": [
+                {"type": "paragraph", "has_children": True},
+                {"id": "b2", "type": "paragraph", "has_children": False},
+            ],
+            "has_more": False,
+        }
+
+        blocks = asyncio.run(fetch_recursive(client, BLOCK_ID, timeout=None))
+
+        assert len(blocks) == 2
+        assert "children" not in blocks[0]
+        assert client.blocks.children.list.call_count == 1
 
     def test_respects_max_depth(self, client: AsyncMock) -> None:
         def make_level(block_id: str) -> dict:
