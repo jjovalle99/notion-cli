@@ -23,9 +23,9 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import timeout_option, token_option
-from notion_cli.output import format_json
-from notion_cli.parsing import extract_id
+from notion_cli.options import fields_option, timeout_option, token_option
+from notion_cli.output import format_json, project_fields
+from notion_cli.parsing import extract_id, parse_fields
 
 your_app = typer.Typer(
     name="yourgroup",
@@ -37,6 +37,7 @@ your_app = typer.Typer(
 @run_async
 async def your_command(
     some_id: Annotated[str, typer.Argument(help="...")],
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -48,13 +49,14 @@ async def your_command(
         notion yourgroup yourcommand abc123
     """
     resolved_token = resolve_token(token=token)
+    fields_set = parse_fields(fields)
     sid = extract_id(some_id)
 
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.some.method(sid), timeout)
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
 ```
 
 Key conventions to follow:
@@ -75,26 +77,42 @@ Every API call must use `await_with_timeout(coroutine, timeout)` from `_async.py
 
 ### Pagination
 
-If the API endpoint is paginated (returns `has_more` and `next_cursor`), collect all pages:
+If the API endpoint is paginated (returns `has_more` and `next_cursor`), use the `paginate()` helper from `_async.py`:
 
 ```python
-all_results: list[object] = []
+from notion_cli._async import paginate
+
 async with AsyncClient(auth=resolved_token) as client:
-    result = await await_with_timeout(client.some.list(...), timeout)
-    all_results.extend(result.get("results", []))
+    all_results, envelope = await paginate(client.some.list, kwargs, timeout, limit=limit)
 
-    while result.get("has_more") and result.get("next_cursor") and result.get("results"):
-        result = await await_with_timeout(
-            client.some.list(..., start_cursor=result["next_cursor"]), timeout
-        )
-        all_results.extend(result.get("results", []))
-
-    envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
-
-typer.echo(format_json({**envelope, "results": all_results, "has_more": False}))
+typer.echo(format_json({**envelope, "results": project_fields(all_results, fields_set), "has_more": False}))
 ```
 
-The three guards (`has_more`, `next_cursor`, `results`) prevent infinite loops on malformed API responses.
+`paginate()` handles `page_size` clamping, cursor tracking, `has_more`/`next_cursor`/`results` guards, and post-trim to the limit. If the API method requires positional arguments, use `functools.partial`:
+
+```python
+from functools import partial
+all_results, envelope = await paginate(partial(client.data_sources.query, did), kwargs, timeout, limit=limit)
+```
+
+Do not hand-roll pagination loops — all four existing paginated commands use this helper.
+
+### Shared helpers
+
+These utilities in `parsing.py` and `_block_utils.py` should be reused, not reimplemented:
+
+| Helper | Module | Purpose |
+|--------|--------|---------|
+| `parse_fields(fields)` | `parsing.py` | Parse `--fields` comma string into `set[str] \| None` |
+| `validate_limit(limit)` | `parsing.py` | Reject `--limit` values < 1 |
+| `parse_json(value, expected_type, label)` | `parsing.py` | Parse and type-validate JSON options (`--filter`, `--properties`, etc.) |
+| `resolve_rich_text(body, rich_text_json)` | `parsing.py` | Resolve `--body` / `--rich-text` mutual exclusion for comments |
+| `project_fields(data, fields_set)` | `output.py` | Apply `--fields` projection to output data |
+| `paginate(method, kwargs, timeout, limit)` | `_async.py` | Paginate any Notion list endpoint |
+| `fetch_children(client, block_id, timeout, limit)` | `_block_utils.py` | Fetch child blocks with optional limit |
+| `fetch_recursive(client, block_id, timeout, max_depth)` | `_block_utils.py` | Recursively fetch nested blocks (semaphore-bounded concurrency) |
+| `clean_block(block, skip_types)` | `_block_utils.py` | Strip server fields for block re-creation; filters `skip_types` recursively |
+| `SKIP_CONTENT_TYPES` | `_block_utils.py` | Block types to skip during content copy (`child_page`, `child_database`, `synced_block`, `unsupported`) |
 
 ### Registering the command
 
