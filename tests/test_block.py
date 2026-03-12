@@ -352,6 +352,18 @@ class TestBlockAppend:
         call_kwargs = mock_client.blocks.children.append.call_args.kwargs
         assert call_kwargs["children"][0]["type"] == "paragraph"
 
+    def test_dry_run_skips_api(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        children = '[{"type":"paragraph","paragraph":{"rich_text":[]}}]'
+        result = runner.invoke(
+            app,
+            ["block", "append", BLOCK_ID, "--children", children, "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        mock_client.blocks.children.append.assert_not_called()
+
 
 class TestBlockUpdate:
     def test_update_block(self, runner: CliRunner, mock_client: AsyncMock) -> None:

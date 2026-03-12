@@ -68,6 +68,16 @@ class TestReplaceInRichText:
         assert result[1]["text"]["content"] == "new B"
         assert result[1]["annotations"] == {"bold": True}
 
+    def test_missing_text_key_not_changed(self) -> None:
+        rich_text = [{"type": "text"}]
+        result, changed = replace_in_rich_text(rich_text, "find", "replace")
+        assert not changed
+
+    def test_missing_content_key_not_changed(self) -> None:
+        rich_text = [{"type": "text", "text": {}}]
+        result, changed = replace_in_rich_text(rich_text, "find", "replace")
+        assert not changed
+
 
 class TestPageEdit:
     def test_basic_find_replace(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -155,3 +165,67 @@ class TestPageEdit:
         assert data["dry_run"] is True
         assert data["blocks_would_modify"] == 1
         mock_client.blocks.update.assert_not_called()
+
+    def test_invalid_regex_exits_2(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["page", "edit", PAGE_ID, "--find", "(unclosed", "--replace", "x", "--regex"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "invalid_args"
+
+    def test_empty_find_string_exits_2(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["page", "edit", PAGE_ID, "--find", "", "--replace", "x"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "invalid_args"
+        mock_client.blocks.children.list.assert_not_called()
+
+    def test_regex_find_replace(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.blocks.children.list.return_value = {
+            "results": [
+                {
+                    "id": "b1",
+                    "type": "paragraph",
+                    "has_children": False,
+                    "paragraph": {
+                        "rich_text": [
+                            {
+                                "type": "text",
+                                "text": {"content": "date: 2024-01-15"},
+                                "annotations": {},
+                            }
+                        ]
+                    },
+                }
+            ],
+            "has_more": False,
+        }
+        mock_client.blocks.update.return_value = {"id": "b1"}
+
+        result = runner.invoke(
+            app,
+            [
+                "page",
+                "edit",
+                PAGE_ID,
+                "--find",
+                r"\d{4}-\d{2}-\d{2}",
+                "--replace",
+                "REDACTED",
+                "--regex",
+            ],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["blocks_modified"] == 1
+        mock_client.blocks.update.assert_called_once()

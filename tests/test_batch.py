@@ -129,3 +129,27 @@ class TestProcessBatch:
 
         data = json.loads(output_lines[0])
         assert data == {"id": "x", "name": "y"}
+
+    def test_non_dict_json_line_produces_error(self) -> None:
+        async def handler(item: dict[str, object]) -> dict[str, object]:
+            return item
+
+        lines = ["42\n", '"string"\n', '{"valid": true}\n']
+        output_lines: list[str] = []
+        error_lines: list[str] = []
+
+        exit_code = asyncio.run(
+            process_batch(
+                lines=lines,
+                handler=handler,
+                fields=None,
+                on_result=output_lines.append,
+                on_error=error_lines.append,
+            )
+        )
+
+        assert exit_code == ExitCode.ERROR
+        assert len(output_lines) == 1
+        assert len(error_lines) == 2
+        assert "JSON object" in error_lines[0]
+        assert "JSON object" in error_lines[1]
