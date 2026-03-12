@@ -281,6 +281,9 @@ async def move(
     typer.echo(format_json(result))
 
 
+_SKIP_CONTENT_TYPES = frozenset({"child_page", "child_database", "unsupported"})
+
+
 @page_app.command()
 @run_async
 async def duplicate(
@@ -288,21 +291,38 @@ async def duplicate(
         str,
         typer.Argument(help="Page ID or Notion URL to duplicate."),
     ],
+    with_content: Annotated[
+        bool,
+        typer.Option(
+            "--with-content",
+            help="Also copy page content blocks (not just properties).",
+        ),
+    ] = False,
+    destination: Annotated[
+        str | None,
+        typer.Option(
+            "--destination",
+            "-d",
+            help="Parent page ID/URL for the copy. Defaults to same parent as original.",
+        ),
+    ] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Duplicate a Notion page.
 
-    Creates a copy of the page including its properties. The duplicate is placed
-    in the same parent as the original. This is an async operation — the response
-    may return before the full copy is complete.
+    Creates a copy of the page including its properties, icon, and cover.
+    Use --with-content to also copy block content. Use --destination to
+    place the copy under a different parent page.
 
     Examples:
         notion page duplicate abc123
-        notion page duplicate https://notion.so/My-Page-abc123
+        notion page duplicate abc123 --with-content
+        notion page duplicate abc123 --destination def456
     """
     resolved_token = resolve_token(token=token)
     pid = extract_id(page_id)
+    dest_id = extract_id(destination) if destination else None
 
     from notion_client import AsyncClient
 
@@ -314,8 +334,9 @@ async def duplicate(
             for k, v in props.items()
             if isinstance(v, dict) and v.get("type") not in _READ_ONLY_TYPES
         }
+        parent = {"page_id": dest_id} if dest_id else original.get("parent", {})
         create_kwargs: dict[str, object] = {
-            "parent": original.get("parent", {}),
+            "parent": parent,
             "properties": writable_props,
         }
         if original.get("icon") is not None:
@@ -323,4 +344,17 @@ async def duplicate(
         if original.get("cover") is not None:
             create_kwargs["cover"] = original["cover"]
         result = await await_with_timeout(client.pages.create(**create_kwargs), timeout)
+
+        if with_content:
+            from notion_cli._block_utils import APPEND_BATCH_SIZE, clean_block, fetch_recursive
+
+            blocks = await fetch_recursive(client, pid, timeout, max_depth=20)
+            cleaned = [clean_block(b) for b in blocks if b.get("type") not in _SKIP_CONTENT_TYPES]
+            new_page_id = result.get("id", "")
+            for i in range(0, len(cleaned), APPEND_BATCH_SIZE):
+                batch = cleaned[i : i + APPEND_BATCH_SIZE]
+                await await_with_timeout(
+                    client.blocks.children.append(new_page_id, children=batch), timeout
+                )
+
     typer.echo(format_json(result))

@@ -153,8 +153,13 @@ async def append(
 
     from notion_client import AsyncClient
 
+    from notion_cli._block_utils import APPEND_BATCH_SIZE
+
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(
-            client.blocks.children.append(pid, children=block_list), timeout
-        )
+        result: dict[str, object] = {}
+        for i in range(0, len(block_list), APPEND_BATCH_SIZE):
+            batch = block_list[i : i + APPEND_BATCH_SIZE]
+            result = await await_with_timeout(
+                client.blocks.children.append(pid, children=batch), timeout
+            )
     typer.echo(format_json(result))

@@ -23,6 +23,8 @@ _BLOCK_SERVER_FIELDS = frozenset(
 
 _SKIP_RECURSE_TYPES = frozenset({"child_page", "child_database"})
 
+APPEND_BATCH_SIZE = 100
+
 
 async def fetch_children(
     client: "AsyncClient",
