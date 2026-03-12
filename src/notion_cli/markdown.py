@@ -77,6 +77,17 @@ def _block_to_md(block: dict[str, Any], number: int, depth: int = 0) -> str:
         caption = rich_text_to_md(data.get("caption", []))
         return f"{indent}![{caption}]({url})"
 
+    if block_type in ("video", "audio", "pdf", "file"):
+        file_data = data.get("file") or data.get("external") or {}
+        url = file_data.get("url", "") if isinstance(file_data, dict) else ""
+        caption = rich_text_to_md(data.get("caption", []))
+        return f"{indent}[{caption or block_type}]({url})"
+
+    if block_type == "embed":
+        url = data.get("url", "")
+        caption = rich_text_to_md(data.get("caption", []))
+        return f"{indent}[{caption or block_type}]({url})"
+
     if block_type == "bookmark":
         url = data.get("url", "")
         caption = rich_text_to_md(data.get("caption", []))
