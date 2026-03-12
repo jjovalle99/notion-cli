@@ -289,9 +289,6 @@ async def move(
     typer.echo(format_json(project_fields(result, fields_set)))
 
 
-_SKIP_CONTENT_TYPES = frozenset({"child_page", "child_database", "synced_block", "unsupported"})
-
-
 @page_app.command()
 @run_async
 async def duplicate(
@@ -356,7 +353,12 @@ async def duplicate(
         result = await await_with_timeout(client.pages.create(**create_kwargs), timeout)
 
         if with_content:
-            from notion_cli._block_utils import APPEND_BATCH_SIZE, clean_block, fetch_recursive
+            from notion_cli._block_utils import (
+                APPEND_BATCH_SIZE,
+                SKIP_CONTENT_TYPES,
+                clean_block,
+                fetch_recursive,
+            )
 
             new_page_id = result.get("id")
             if not new_page_id:
@@ -369,11 +371,24 @@ async def duplicate(
                 )
                 raise SystemExit(ExitCode.ERROR)
             blocks = await fetch_recursive(client, pid, timeout, max_depth=20)
-            cleaned = [clean_block(b) for b in blocks if b.get("type") not in _SKIP_CONTENT_TYPES]
-            for i in range(0, len(cleaned), APPEND_BATCH_SIZE):
-                batch = cleaned[i : i + APPEND_BATCH_SIZE]
-                await await_with_timeout(
-                    client.blocks.children.append(new_page_id, children=batch), timeout
-                )
+            cleaned = [
+                clean_block(b, skip_types=SKIP_CONTENT_TYPES)
+                for b in blocks
+                if b.get("type") not in SKIP_CONTENT_TYPES
+            ]
+            try:
+                for i in range(0, len(cleaned), APPEND_BATCH_SIZE):
+                    batch = cleaned[i : i + APPEND_BATCH_SIZE]
+                    await await_with_timeout(
+                        client.blocks.children.append(new_page_id, children=batch), timeout
+                    )
+            except Exception:
+                try:
+                    await client.pages.update(page_id=new_page_id, archived=True)
+                    msg = f"Content copy failed; created page {new_page_id} has been archived."
+                except Exception:
+                    msg = f"Content copy failed; created page {new_page_id} could not be archived — clean it up manually."
+                typer.echo(format_error("content_copy_failed", msg), err=True)
+                raise SystemExit(ExitCode.ERROR)
 
     typer.echo(format_json(project_fields(result, fields_set)))
