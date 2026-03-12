@@ -56,8 +56,13 @@ def run_async[**P](fn: Callable[P, Coroutine[object, object, None]]) -> Callable
             if isinstance(exc, APIResponseError):
                 code_str = exc.code.value if hasattr(exc.code, "value") else str(exc.code)
                 exit_code = _ERROR_CODE_MAP.get(code_str, ExitCode.ERROR)
+                retry_after = exc.headers.get("retry-after")
+                if retry_after and code_str == "rate_limited":
+                    suggestion = f"Retry after {retry_after}s"
+                else:
+                    suggestion = f"HTTP {exc.status}"
                 typer.echo(
-                    format_error(code_str, str(exc), suggestion=f"HTTP {exc.status}"),
+                    format_error(code_str, str(exc), suggestion=suggestion),
                     err=True,
                 )
                 raise SystemExit(exit_code)
