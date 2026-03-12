@@ -25,3 +25,11 @@ def fields_option() -> OptionInfo:
         "-f",
         help="Comma-separated list of fields to include in output.",
     )
+
+
+def dry_run_option() -> OptionInfo:
+    """Shared --dry-run option for mutating commands."""
+    return typer.Option(
+        "--dry-run",
+        help="Show what would be sent to the API without making changes.",
+    )

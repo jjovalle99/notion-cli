@@ -5,8 +5,8 @@ import typer
 
 from notion_cli._async import await_with_timeout, paginate, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import fields_option, timeout_option, token_option
-from notion_cli.output import ExitCode, format_error, format_json, project_fields
+from notion_cli.options import dry_run_option, fields_option, timeout_option, token_option
+from notion_cli.output import ExitCode, echo_dry_run, format_error, format_json, project_fields
 from notion_cli.parsing import extract_id, parse_fields
 
 
@@ -166,6 +166,7 @@ async def create(
             ),
         ),
     ] = None,
+    dry_run: Annotated[bool, dry_run_option()] = False,
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -194,6 +195,9 @@ async def create(
 
         parsed_props = parse_json(properties, expected_type=dict, label="--properties")
         kwargs["properties"] = {**kwargs["properties"], **parsed_props}
+
+    if dry_run:
+        echo_dry_run("db create", kwargs)
 
     from notion_client import AsyncClient
 
@@ -224,6 +228,7 @@ async def update(
             help="Updated properties schema as a JSON string.",
         ),
     ] = None,
+    dry_run: Annotated[bool, dry_run_option()] = False,
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -254,6 +259,9 @@ async def update(
             format_error("missing_args", "Provide at least --title or --properties."), err=True
         )
         raise SystemExit(ExitCode.BAD_ARGS)
+
+    if dry_run:
+        echo_dry_run("db update", {"database_id": did, **kwargs})
 
     from notion_client import AsyncClient
 
