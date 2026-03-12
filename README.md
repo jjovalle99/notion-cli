@@ -55,16 +55,17 @@ Or pass per command with `--token`.
 notion search <query>              Search pages and databases by title
 notion page get <id>               Get page metadata (properties, parent, URL)
 notion page create                 Create a page with markdown content
-notion page update <id>            Update title, properties, icon, archive status
+notion page update <id>            Update title, properties, icon, archive/unarchive
 notion page move <id>              Move a page to a different parent
-notion page duplicate <id>         Duplicate a page
+notion page duplicate <id>         Duplicate a page (with optional content copy)
 notion db get <id>                 Get database schema
 notion db query <id>               Query database rows with filter and sort
 notion db create                   Create a database
 notion db update <id>              Update database title or schema
 notion block get <id>              Get page content as blocks or markdown
 notion block append <id>           Append block objects (JSON) to a page
-notion comment add <id>            Add a comment to a page
+notion comment add <id>            Add a comment to a page (plain text or rich text)
+notion comment reply <disc-id>     Reply to a comment thread
 notion comment list <id>           List comments on a page
 notion user list                   List workspace users
 notion user get <id>               Get a specific user
@@ -82,19 +83,34 @@ All IDs accept Notion URLs or raw UUIDs.
 notion search "meeting notes"
 notion search "roadmap" --type page --limit 5
 
-# Read page content as markdown
+# Read page content as markdown (with recursive nested blocks)
 notion block get <page-id> --markdown
+notion block get <page-id> --recursive --markdown
+notion block get <page-id> --recursive --depth 2 --markdown
 
 # Create a page with markdown (inline, from file, or stdin)
 notion page create -p <parent-id> -t "New Page" -c $'# Hello\nWorld'
 notion page create -p <parent-id> -t "Notes" -c @notes.md
-cat notes.md | notion page create -p <parent-id> -t "Notes" -c -
+notion page create -p <db-id> -t "Row" --parent-type database --icon "📝"
+
+# Duplicate a page (with content and to a different parent)
+notion page duplicate <page-id> --with-content
+notion page duplicate <page-id> --destination <parent-id>
+notion page duplicate <page-id> --destination <db-id> --destination-type database
 
 # Query a database
 notion db query <db-id> --filter '{"property":"Status","select":{"equals":"Done"}}'
 
 # Update a row
 notion page update <row-id> --properties '{"Status":{"select":{"name":"Done"}}}'
+
+# Comments (plain text or rich text JSON)
+notion comment add <page-id> --body "Looks good!"
+notion comment reply <discussion-id> --rich-text '[{"text":{"content":"bold"},"annotations":{"bold":true}}]'
+
+# Project output to specific fields
+notion page get <page-id> --fields id,url,properties
+notion db query <db-id> --fields id,properties --limit 10
 ```
 
 ## Output
@@ -108,8 +124,9 @@ Exit codes: `0` ok · `1` error · `2` bad args · `3` not found · `4` permissi
 
 ## Global options
 
+- `--fields`, `-f` — Comma-separated list of fields to include in output (e.g. `--fields id,url`)
 - `--token` — Notion API token (defaults to `NOTION_API_KEY` env var)
-- `--timeout` — Timeout per API request in seconds (paginated commands make multiple requests)
+- `--timeout` — Timeout per API request in seconds. Total wall-clock time for paginated results is not bounded.
 - `--help` — Show help for any command
 
 ## Development
