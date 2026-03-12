@@ -21,6 +21,12 @@ MOCK_APPEND = {
     "results": [{"id": "new-block-1", "type": "paragraph"}],
 }
 
+MOCK_BLOCK = {
+    "id": BLOCK_ID,
+    "type": "paragraph",
+    "paragraph": {"rich_text": [{"text": {"content": "updated"}}]},
+}
+
 
 class TestBlockGet:
     def test_get_children(self, runner: CliRunner, mock_client: AsyncMock) -> None:
@@ -345,3 +351,122 @@ class TestBlockAppend:
         assert result.exit_code == 0
         call_kwargs = mock_client.blocks.children.append.call_args.kwargs
         assert call_kwargs["children"][0]["type"] == "paragraph"
+
+
+class TestBlockUpdate:
+    def test_update_block(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.blocks.update.return_value = MOCK_BLOCK
+        body = '{"paragraph": {"rich_text": [{"text": {"content": "updated"}}]}}'
+
+        result = runner.invoke(
+            app,
+            ["block", "update", BLOCK_ID, "--body", body],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["id"] == BLOCK_ID
+        mock_client.blocks.update.assert_called_once()
+
+    def test_update_with_fields(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.blocks.update.return_value = MOCK_BLOCK
+        body = '{"paragraph": {"rich_text": [{"text": {"content": "updated"}}]}}'
+
+        result = runner.invoke(
+            app,
+            ["block", "update", BLOCK_ID, "--body", body, "--fields", "id"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data == {"id": BLOCK_ID}
+
+    def test_update_dry_run(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        body = '{"paragraph": {"rich_text": []}}'
+
+        result = runner.invoke(
+            app,
+            ["block", "update", BLOCK_ID, "--body", body, "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        assert data["command"] == "block update"
+        mock_client.blocks.update.assert_not_called()
+
+    def test_update_empty_body_rejected(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["block", "update", BLOCK_ID, "--body", "{}"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "empty_input"
+        mock_client.blocks.update.assert_not_called()
+
+    def test_update_from_file(
+        self,
+        runner: CliRunner,
+        mock_client: AsyncMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        json_file = tmp_path / "update.json"
+        json_file.write_text('{"paragraph": {"rich_text": []}}')
+        mock_client.blocks.update.return_value = MOCK_BLOCK
+
+        result = runner.invoke(
+            app,
+            ["block", "update", BLOCK_ID, "--body", f"@{json_file}"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        mock_client.blocks.update.assert_called_once()
+
+
+class TestBlockDelete:
+    def test_delete_block(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.blocks.delete.return_value = {**MOCK_BLOCK, "archived": True}
+
+        result = runner.invoke(
+            app,
+            ["block", "delete", BLOCK_ID],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["archived"] is True
+        mock_client.blocks.delete.assert_called_once()
+
+    def test_delete_with_fields(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.blocks.delete.return_value = {**MOCK_BLOCK, "archived": True}
+
+        result = runner.invoke(
+            app,
+            ["block", "delete", BLOCK_ID, "--fields", "id,archived"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data == {"id": BLOCK_ID, "archived": True}
+
+    def test_delete_dry_run(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app,
+            ["block", "delete", BLOCK_ID, "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        assert data["command"] == "block delete"
+        mock_client.blocks.delete.assert_not_called()

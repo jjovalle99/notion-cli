@@ -24,7 +24,7 @@ from notion_cli.parsing import extract_id, read_content
 block_app = typer.Typer(
     name="block",
     help=(
-        "Read and append content blocks within Notion pages.\n\n"
+        "Manage content blocks within Notion pages.\n\n"
         "Blocks are the content elements inside a page: paragraphs, headings, "
         "lists, code blocks, images, etc. Use 'notion page get' for page metadata "
         "and 'notion block get' for page content."
@@ -218,4 +218,90 @@ async def append(
                 )
                 raise SystemExit(ExitCode.ERROR)
             raise
+    typer.echo(format_json(project_fields(result, fields_set)))
+
+
+@block_app.command()
+@run_async
+async def update(
+    block_id: Annotated[
+        str,
+        typer.Argument(help="Block ID/URL to update."),
+    ],
+    body: Annotated[
+        str,
+        typer.Option(
+            "--body",
+            "-b",
+            help=(
+                "JSON object with block properties to update. "
+                "Use '@path/to/file.json' to read from a file, or '-' for stdin."
+            ),
+        ),
+    ],
+    dry_run: Annotated[bool, dry_run_option()] = False,
+    fields: Annotated[str | None, fields_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
+) -> None:
+    """Update a block's content or properties.
+
+    Examples:
+        notion block update abc123 --body '{"paragraph": {"rich_text": [{"text": {"content": "Hello"}}]}}'
+        notion block update abc123 -b @update.json
+    """
+    from notion_cli.parsing import parse_fields, parse_json
+
+    resolved_token = resolve_token(token=token)
+    fields_set = parse_fields(fields)
+    bid = extract_id(block_id)
+    raw = read_content(body)
+    payload = parse_json(raw, expected_type=dict, label="--body")
+    if not payload:
+        typer.echo(format_error("empty_input", "--body must be a non-empty object."), err=True)
+        raise SystemExit(ExitCode.BAD_ARGS)
+
+    if dry_run:
+        echo_dry_run("block update", {"block_id": bid, **payload})
+
+    from notion_client import AsyncClient
+
+    async with AsyncClient(auth=resolved_token) as client:
+        result = await await_with_timeout(client.blocks.update(bid, **payload), timeout)
+    typer.echo(format_json(project_fields(result, fields_set)))
+
+
+@block_app.command()
+@run_async
+async def delete(
+    block_id: Annotated[
+        str,
+        typer.Argument(help="Block ID/URL to delete (archive)."),
+    ],
+    dry_run: Annotated[bool, dry_run_option()] = False,
+    fields: Annotated[str | None, fields_option()] = None,
+    token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
+) -> None:
+    """Delete (archive) a block.
+
+    The block is moved to trash and can be restored from there.
+
+    Examples:
+        notion block delete abc123
+        notion block delete abc123 --fields id,archived
+    """
+    from notion_cli.parsing import parse_fields
+
+    resolved_token = resolve_token(token=token)
+    fields_set = parse_fields(fields)
+    bid = extract_id(block_id)
+
+    if dry_run:
+        echo_dry_run("block delete", {"block_id": bid})
+
+    from notion_client import AsyncClient
+
+    async with AsyncClient(auth=resolved_token) as client:
+        result = await await_with_timeout(client.blocks.delete(bid), timeout)
     typer.echo(format_json(project_fields(result, fields_set)))
