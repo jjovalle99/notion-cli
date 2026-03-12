@@ -4,8 +4,8 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import fields_option, timeout_option, token_option
-from notion_cli.output import ExitCode, format_error, format_json, project_fields
+from notion_cli.options import fields_option, output_format_option, timeout_option, token_option
+from notion_cli.output import ExitCode, echo_list, format_error, format_json, project_fields
 from notion_cli.parsing import extract_id, read_content
 
 block_app = typer.Typer(
@@ -64,6 +64,7 @@ async def get(
         ),
     ] = 5,
     fields: Annotated[str | None, fields_option()] = None,
+    output_format: Annotated[str, output_format_option()] = "json",
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -121,11 +122,7 @@ async def get(
 
         typer.echo(blocks_to_markdown(all_results), nl=False)
     else:
-        typer.echo(
-            format_json(
-                {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
-            )
-        )
+        echo_list(project_fields(all_results, fields_set), envelope, output_format)
 
 
 @block_app.command()

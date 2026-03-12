@@ -5,8 +5,8 @@ import typer
 
 from notion_cli._async import paginate, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import fields_option, timeout_option, token_option
-from notion_cli.output import format_json, project_fields
+from notion_cli.options import fields_option, output_format_option, timeout_option, token_option
+from notion_cli.output import echo_list, project_fields
 
 
 @run_async
@@ -38,6 +38,7 @@ async def search(
         ),
     ] = None,
     fields: Annotated[str | None, fields_option()] = None,
+    output_format: Annotated[str, output_format_option()] = "json",
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -65,8 +66,4 @@ async def search(
     async with AsyncClient(auth=resolved_token) as client:
         all_results, envelope = await paginate(client.search, kwargs, timeout, limit=limit)
 
-    typer.echo(
-        format_json(
-            {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
-        )
-    )
+    echo_list(project_fields(all_results, fields_set), envelope, output_format)

@@ -1,3 +1,4 @@
+import click
 import typer
 from typer.models import OptionInfo
 
@@ -24,4 +25,15 @@ def fields_option() -> OptionInfo:
         "--fields",
         "-f",
         help="Comma-separated list of fields to include in output.",
+    )
+
+
+def output_format_option() -> OptionInfo:
+    """Shared --output-format option for list commands."""
+
+    return typer.Option(
+        "--output-format",
+        "-o",
+        click_type=click.Choice(["json", "ndjson"]),
+        help="Output format: 'json' (default envelope) or 'ndjson' (one JSON object per line).",
     )
