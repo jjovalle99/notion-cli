@@ -28,6 +28,14 @@ def fields_option() -> OptionInfo:
     )
 
 
+def dry_run_option() -> OptionInfo:
+    """Shared --dry-run option for mutating commands."""
+    return typer.Option(
+        "--dry-run",
+        help="Show what would be sent to the API without making changes.",
+    )
+
+
 def output_format_option() -> OptionInfo:
     """Shared --output-format option for list commands."""
 
