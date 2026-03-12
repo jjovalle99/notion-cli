@@ -1,5 +1,6 @@
 import enum
 import json
+import sys
 
 
 class ExitCode(enum.IntEnum):
@@ -12,9 +13,12 @@ class ExitCode(enum.IntEnum):
 
 
 _COMPACT = (",", ":")
+_STDOUT_IS_TTY = sys.stdout.isatty()
 
 
 def format_json(data: object) -> str:
+    if _STDOUT_IS_TTY:
+        return json.dumps(data, default=str, indent=2)
     return json.dumps(data, default=str, separators=_COMPACT)
 
 
@@ -30,6 +34,27 @@ def project_fields(data: object, fields: set[str] | None) -> object:
             for item in data
         ]
     return data
+
+
+def format_ndjson(items: list[object]) -> str:
+    """Format a list of items as newline-delimited JSON (one compact JSON object per line)."""
+    if not items:
+        return ""
+    return "\n".join(format_json(item) for item in items) + "\n"
+
+
+def echo_list(
+    results: object,
+    envelope: dict[str, object],
+    output_format: str,
+) -> None:
+    """Write list results to stdout in the requested format."""
+    import typer
+
+    if output_format == "ndjson":
+        typer.echo(format_ndjson(results), nl=False)
+    else:
+        typer.echo(format_json({**envelope, "results": results, "has_more": False}))
 
 
 def format_error(error_type: str, message: str, *, suggestion: str | None = None) -> str:

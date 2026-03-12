@@ -1,6 +1,8 @@
 import json
 
-from notion_cli.output import ExitCode, format_error, format_json, project_fields
+import pytest
+
+from notion_cli.output import ExitCode, format_error, format_json, format_ndjson, project_fields
 
 
 def test_project_fields_dict() -> None:
@@ -32,20 +34,37 @@ def test_project_fields_empty_set() -> None:
     assert result == {}
 
 
-def test_format_json_dict() -> None:
+def test_format_json_dict(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("notion_cli.output._STDOUT_IS_TTY", False)
     result = format_json({"id": "abc", "title": "Test"})
     parsed = json.loads(result)
     assert parsed == {"id": "abc", "title": "Test"}
 
 
-def test_format_json_list() -> None:
+def test_format_json_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("notion_cli.output._STDOUT_IS_TTY", False)
     result = format_json([{"id": "1"}, {"id": "2"}])
     parsed = json.loads(result)
     assert parsed == [{"id": "1"}, {"id": "2"}]
 
 
-def test_format_json_compact_by_default() -> None:
+def test_format_json_compact_when_not_tty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("notion_cli.output._STDOUT_IS_TTY", False)
     result = format_json({"a": 1})
+    assert "\n" not in result
+    assert result == '{"a":1}'
+
+
+def test_format_json_pretty_when_tty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("notion_cli.output._STDOUT_IS_TTY", True)
+    result = format_json({"a": 1})
+    assert "\n" in result
+    assert json.loads(result) == {"a": 1}
+
+
+def test_format_error_always_compact_even_when_tty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("notion_cli.output._STDOUT_IS_TTY", True)
+    result = format_error("test", "msg")
     assert "\n" not in result
 
 
@@ -72,3 +91,21 @@ def test_exit_code_values() -> None:
     assert ExitCode.NOT_FOUND == 3
     assert ExitCode.PERMISSION == 4
     assert ExitCode.RATE_LIMITED == 5
+
+
+def test_format_ndjson_one_line_per_item() -> None:
+    items = [{"id": "1", "name": "A"}, {"id": "2", "name": "B"}]
+    result = format_ndjson(items)
+    lines = result.strip().split("\n")
+    assert len(lines) == 2
+    assert json.loads(lines[0]) == {"id": "1", "name": "A"}
+    assert json.loads(lines[1]) == {"id": "2", "name": "B"}
+
+
+def test_format_ndjson_compact_lines() -> None:
+    result = format_ndjson([{"a": 1}])
+    assert result == '{"a":1}\n'
+
+
+def test_format_ndjson_empty_list() -> None:
+    assert format_ndjson([]) == ""
