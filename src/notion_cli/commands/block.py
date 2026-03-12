@@ -127,9 +127,6 @@ async def get(
 
             all_results, envelope = await fetch_children(client, bid, timeout, limit=limit)
 
-    if limit is not None:
-        all_results = all_results[:limit]
-
     if markdown:
         from notion_cli.markdown import blocks_to_markdown
 

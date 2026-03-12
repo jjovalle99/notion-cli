@@ -191,7 +191,7 @@ class TestBug21WhereUnknownProperty:
         )
 
         assert result.exit_code == 0
-        assert "unresolved" in result.stderr.lower() or result.exit_code == 0
+        assert "unresolved_property" in result.stderr
 
 
 class TestBug22VersionPinWithoutContent:

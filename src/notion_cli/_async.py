@@ -53,7 +53,7 @@ async def paginate(
         all_results.extend(result.get("results") or [])
 
     envelope: dict[str, object] = {
-        k: v for k, v in result.items() if k not in ("results", "has_more")
+        k: v for k, v in result.items() if k not in ("results", "has_more", "next_cursor")
     }
     if limit is not None:
         all_results = all_results[:limit]
