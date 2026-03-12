@@ -68,12 +68,19 @@ async def get(
             blocks_coro = fetch_children(client, pid, timeout)
             comments_coro = await_with_timeout(client.comments.list(block_id=pid), timeout)
             page_result, (block_list, _), comments_result = await asyncio.gather(
-                page_coro, blocks_coro, comments_coro
+                page_coro, blocks_coro, comments_coro, return_exceptions=True
             )
+            if isinstance(page_result, BaseException):
+                raise page_result
+            if isinstance(block_list, BaseException):
+                raise block_list
+            comments: list[object] = []
+            if not isinstance(comments_result, BaseException):
+                comments = list(comments_result.get("results") or [])
             combined: dict[str, object] = {
                 "page": page_result,
                 "blocks": block_list,
-                "comments": list(comments_result.get("results") or []),
+                "comments": comments,
             }
             typer.echo(format_json(project_fields(combined, fields_set)))
         else:
@@ -165,6 +172,9 @@ async def create(
     fields_set = parse_fields(fields)
 
     if stdin:
+        if dry_run:
+            echo_dry_run("page create --stdin", {"note": "stdin batch does not support dry-run"})
+
         import sys
 
         from notion_cli._batch import process_batch
@@ -191,7 +201,7 @@ async def create(
                 kw["icon"] = {"type": "emoji", "emoji": item_icon}
             item_content = item.get("content")
             if item_content is not None:
-                kw["markdown"] = str(item_content)
+                kw["markdown"] = read_content(str(item_content))
                 return await await_with_timeout(
                     client.request(path="pages", method="POST", body=kw), timeout
                 )
@@ -329,6 +339,16 @@ async def update(
     if archive is not None:
         kwargs["archived"] = archive
 
+    if len(kwargs) == 1:
+        typer.echo(
+            format_error(
+                "missing_args",
+                "Provide at least --title, --icon, --properties, or --archive.",
+            ),
+            err=True,
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
+
     if dry_run:
         echo_dry_run("page update", kwargs)
 
@@ -380,6 +400,9 @@ async def move(
     fields_set = parse_fields(fields)
 
     if stdin:
+        if dry_run:
+            echo_dry_run("page move --stdin", {"note": "stdin batch does not support dry-run"})
+
         import sys
 
         from notion_cli._batch import process_batch
@@ -611,7 +634,7 @@ async def edit(
             if not type_data or "rich_text" not in type_data:
                 continue
             new_rt, changed = replace_in_rich_text(type_data["rich_text"], find, replace)
-            if changed:
+            if changed and block.get("id"):
                 modifications.append({"block_id": block["id"], "type": btype, "rich_text": new_rt})
 
         if dry_run:
@@ -705,7 +728,7 @@ async def grep(
         if not type_data or "rich_text" not in type_data:
             continue
         text = "".join(
-            span["text"]["content"]
+            span.get("text", {}).get("content", "")
             for span in type_data["rich_text"]
             if span.get("type") == "text"
         )

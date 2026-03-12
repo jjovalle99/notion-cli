@@ -36,10 +36,14 @@ def project_fields(data: object, fields: set[str] | None) -> object:
     return data
 
 
+def _compact_json(data: object) -> str:
+    return json.dumps(data, default=str, separators=_COMPACT)
+
+
 def stream_ndjson_page(items: list[object], fields: set[str] | None) -> None:
     """Write a page of items to stdout as NDJSON, flushing immediately."""
     for item in items:
-        sys.stdout.write(format_json(project_fields(item, fields)) + "\n")
+        sys.stdout.write(_compact_json(project_fields(item, fields)) + "\n")
     sys.stdout.flush()
 
 
@@ -55,7 +59,7 @@ def format_ndjson(items: list[object]) -> str:
     """Format a list of items as newline-delimited JSON (one compact JSON object per line)."""
     if not items:
         return ""
-    return "\n".join(format_json(item) for item in items) + "\n"
+    return "\n".join(_compact_json(item) for item in items) + "\n"
 
 
 def echo_list(

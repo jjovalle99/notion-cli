@@ -159,7 +159,11 @@ def replace_in_rich_text(
         if span.get("type") != "text":
             result.append(span)
             continue
-        content = span["text"]["content"]
+        text_data = span.get("text")
+        if not isinstance(text_data, dict):
+            result.append(span)
+            continue
+        content = text_data.get("content", "")
         if find not in content:
             result.append(span)
             continue

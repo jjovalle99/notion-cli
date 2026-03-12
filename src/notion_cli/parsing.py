@@ -128,7 +128,10 @@ def resolve_rich_text(body: str | None, rich_text_json: str | None) -> list[obje
 
 def parse_fields(fields: str | None) -> set[str] | None:
     """Parse a comma-separated fields string into a set, or None if empty."""
-    return set(fields.split(",")) if fields else None
+    if not fields:
+        return None
+    result = {f.strip() for f in fields.split(",") if f.strip()}
+    return result or None
 
 
 def validate_limit(limit: int | None) -> None:

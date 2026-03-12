@@ -62,6 +62,7 @@ async def api(
 
     resolved_token = resolve_token(token=token)
     fields_set = parse_fields(fields)
+    clean_path = path.lstrip("/")
 
     parsed_body: dict[str, object] | None = None
     if body is not None:
@@ -81,10 +82,10 @@ async def api(
     async with AsyncClient(auth=resolved_token) as client:
         if parsed_body is not None:
             result = await await_with_timeout(
-                client.request(path=path, method=upper_method, body=parsed_body), timeout
+                client.request(path=clean_path, method=upper_method, body=parsed_body), timeout
             )
         else:
             result = await await_with_timeout(
-                client.request(path=path, method=upper_method), timeout
+                client.request(path=clean_path, method=upper_method), timeout
             )
     typer.echo(format_json(project_fields(result, fields_set)))
