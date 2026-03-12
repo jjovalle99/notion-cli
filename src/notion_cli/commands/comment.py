@@ -4,8 +4,8 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import timeout_option, token_option
-from notion_cli.output import format_json
+from notion_cli.options import fields_option, timeout_option, token_option
+from notion_cli.output import format_json, project_fields
 from notion_cli.parsing import extract_id
 
 comment_app = typer.Typer(
@@ -68,6 +68,7 @@ async def add(
             help="Rich text as a JSON array. Mutually exclusive with --body.",
         ),
     ] = None,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -81,6 +82,7 @@ async def add(
         notion comment add abc123 --rich-text '[{"text": {"content": "bold"}, "annotations": {"bold": true}}]'
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     pid = extract_id(page_id)
     rt = _resolve_rich_text(body, rich_text)
 
@@ -91,7 +93,7 @@ async def add(
             client.comments.create(parent={"page_id": pid}, rich_text=rt),
             timeout,
         )
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
 
 
 @comment_app.command()
@@ -116,6 +118,7 @@ async def reply(
             help="Rich text as a JSON array. Mutually exclusive with --body.",
         ),
     ] = None,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -129,6 +132,7 @@ async def reply(
         notion comment reply disc-abc123 --rich-text '[{"text": {"content": "done"}}]'
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     did = extract_id(discussion_id)
     rt = _resolve_rich_text(body, rich_text)
 
@@ -139,7 +143,7 @@ async def reply(
             client.comments.create(discussion_id=did, rich_text=rt),
             timeout,
         )
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
 
 
 @comment_app.command(name="list")
@@ -157,6 +161,7 @@ async def list_comments(
             help="Maximum number of comments to return. Omit to return all.",
         ),
     ] = None,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -172,6 +177,7 @@ async def list_comments(
     from notion_cli.parsing import validate_limit
 
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     pid = extract_id(page_id)
     validate_limit(limit)
 
@@ -202,4 +208,8 @@ async def list_comments(
 
     if limit is not None:
         all_results = all_results[:limit]
-    typer.echo(format_json({**envelope, "results": all_results, "has_more": False}))
+    typer.echo(
+        format_json(
+            {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
+        )
+    )

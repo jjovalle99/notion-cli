@@ -4,8 +4,8 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import timeout_option, token_option
-from notion_cli.output import format_json
+from notion_cli.options import fields_option, timeout_option, token_option
+from notion_cli.output import format_json, project_fields
 from notion_cli.parsing import extract_id, read_content
 
 block_app = typer.Typer(
@@ -63,6 +63,7 @@ async def get(
             help="Maximum nesting depth when using --recursive. 1 = top level only.",
         ),
     ] = 5,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -80,6 +81,7 @@ async def get(
     from notion_cli.parsing import validate_limit
 
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     bid = extract_id(block_id)
     validate_limit(limit)
 
@@ -107,7 +109,11 @@ async def get(
 
         typer.echo(blocks_to_markdown(all_results), nl=False)
     else:
-        typer.echo(format_json({**envelope, "results": all_results, "has_more": False}))
+        typer.echo(
+            format_json(
+                {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
+            )
+        )
 
 
 @block_app.command()
@@ -132,6 +138,7 @@ async def append(
             ),
         ),
     ],
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -147,6 +154,7 @@ async def append(
     from notion_cli.parsing import parse_json
 
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     pid = extract_id(parent_id)
     raw = read_content(children)
     block_list = parse_json(raw, expected_type=list, label="--children")
@@ -162,4 +170,4 @@ async def append(
             result = await await_with_timeout(
                 client.blocks.children.append(pid, children=batch), timeout
             )
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
