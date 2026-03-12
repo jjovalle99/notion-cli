@@ -32,6 +32,22 @@ class TestBlockGet:
         data = json.loads(result.stdout)
         assert len(data["results"]) == 2
 
+    def test_get_with_fields(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.blocks.children.list.return_value = {
+            "results": [{"id": "b1", "type": "paragraph", "paragraph": {"rich_text": []}}],
+            "has_more": False,
+        }
+
+        result = runner.invoke(
+            app,
+            ["block", "get", BLOCK_ID, "--fields", "id"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["results"] == [{"id": "b1"}]
+
     def test_get_paginates_automatically(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         page1 = {"results": [{"id": "child-1"}], "has_more": True, "next_cursor": "cur1"}
         page2 = {"results": [{"id": "child-2"}], "has_more": False}
@@ -200,6 +216,32 @@ class TestBlockGet:
         assert "- parent" in result.stdout
         assert "    - child" in result.stdout
 
+    def test_get_recursive_with_depth(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        top_level = {
+            "results": [
+                {"id": "p1", "type": "toggle", "has_children": True, "toggle": {"rich_text": []}},
+            ],
+            "has_more": False,
+        }
+        nested = {
+            "results": [
+                {"id": "c1", "type": "toggle", "has_children": True, "toggle": {"rich_text": []}},
+            ],
+            "has_more": False,
+        }
+        mock_client.blocks.children.list.side_effect = [top_level, nested]
+
+        result = runner.invoke(
+            app,
+            ["block", "get", BLOCK_ID, "--recursive", "--depth", "1"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert "children" not in data["results"][0]
+        assert mock_client.blocks.children.list.call_count == 1
+
     def test_get_recursive_with_limit_rejected(
         self, runner: CliRunner, mock_client: AsyncMock
     ) -> None:
@@ -280,7 +322,7 @@ class TestBlockAppend:
         assert result.exit_code == 1
         error = json.loads(result.stderr)
         assert error["error_type"] == "partial_append"
-        assert "100" in error["message"]
+        assert "100/150" in error["message"]
 
     def test_append_from_file(
         self,

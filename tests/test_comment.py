@@ -130,6 +130,22 @@ class TestCommentList:
         data = json.loads(result.stdout)
         assert len(data["results"]) == 1
 
+    def test_list_with_fields(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.comments.list.return_value = {
+            "results": [MOCK_COMMENT],
+            "has_more": False,
+        }
+
+        result = runner.invoke(
+            app,
+            ["comment", "list", PAGE_ID, "--fields", "id"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["results"] == [{"id": "comment-1"}]
+
     def test_list_with_limit(self, runner: CliRunner, mock_client: AsyncMock) -> None:
         mock_client.comments.list.return_value = {
             "results": [
