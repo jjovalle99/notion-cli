@@ -36,6 +36,14 @@ def project_fields(data: object, fields: set[str] | None) -> object:
     return data
 
 
+def echo_dry_run(command: str, payload: dict[str, object]) -> None:
+    """Print the dry-run payload and exit."""
+    import typer
+
+    typer.echo(format_json({"dry_run": True, "command": command, "payload": payload}))
+    raise SystemExit(ExitCode.OK)
+
+
 def format_ndjson(items: list[object]) -> str:
     """Format a list of items as newline-delimited JSON (one compact JSON object per line)."""
     if not items:

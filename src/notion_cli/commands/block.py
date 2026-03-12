@@ -4,8 +4,21 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import fields_option, output_format_option, timeout_option, token_option
-from notion_cli.output import ExitCode, echo_list, format_error, format_json, project_fields
+from notion_cli.options import (
+    dry_run_option,
+    fields_option,
+    output_format_option,
+    timeout_option,
+    token_option,
+)
+from notion_cli.output import (
+    ExitCode,
+    echo_dry_run,
+    echo_list,
+    format_error,
+    format_json,
+    project_fields,
+)
 from notion_cli.parsing import extract_id, read_content
 
 block_app = typer.Typer(
@@ -147,6 +160,7 @@ async def append(
             ),
         ),
     ],
+    dry_run: Annotated[bool, dry_run_option()] = False,
     fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
@@ -170,6 +184,9 @@ async def append(
     if not block_list:
         typer.echo(format_error("empty_input", "--children must be a non-empty list."), err=True)
         raise SystemExit(ExitCode.BAD_ARGS)
+
+    if dry_run:
+        echo_dry_run("block append", {"parent_id": pid, "children": block_list})
 
     from notion_client import AsyncClient
 
