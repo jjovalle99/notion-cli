@@ -84,6 +84,15 @@ async def get(
     fields_set = set(fields.split(",")) if fields else None
     bid = extract_id(block_id)
     validate_limit(limit)
+    if recursive and limit is not None:
+        typer.echo(
+            format_error(
+                "conflicting_args",
+                "--recursive and --limit cannot be combined. Recursive fetch traverses the full tree.",
+            ),
+            err=True,
+        )
+        raise SystemExit(ExitCode.BAD_ARGS)
 
     from notion_client import AsyncClient
 
@@ -168,9 +177,28 @@ async def append(
 
     async with AsyncClient(auth=resolved_token) as client:
         result: dict[str, object] = {}
-        for i in range(0, len(block_list), APPEND_BATCH_SIZE):
-            batch = block_list[i : i + APPEND_BATCH_SIZE]
-            result = await await_with_timeout(
-                client.blocks.children.append(pid, children=batch), timeout
+        appended = 0
+        try:
+            for i in range(0, len(block_list), APPEND_BATCH_SIZE):
+                batch = block_list[i : i + APPEND_BATCH_SIZE]
+                result = await await_with_timeout(
+                    client.blocks.children.append(pid, children=batch), timeout
+                )
+                appended += len(batch)
+        except Exception as append_exc:
+            from notion_client.errors import NotionClientErrorBase
+
+            is_network_or_api = isinstance(
+                append_exc, (NotionClientErrorBase, TimeoutError, OSError)
             )
+            if appended > 0 and is_network_or_api:
+                typer.echo(
+                    format_error(
+                        "partial_append",
+                        f"Appended {appended}/{len(block_list)} blocks before failure.",
+                    ),
+                    err=True,
+                )
+                raise SystemExit(ExitCode.ERROR)
+            raise
     typer.echo(format_json(project_fields(result, fields_set)))
