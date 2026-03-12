@@ -21,7 +21,7 @@ _BLOCK_SERVER_FIELDS = frozenset(
     }
 )
 
-_SKIP_RECURSE_TYPES = frozenset({"child_page", "child_database"})
+_SKIP_RECURSE_TYPES = frozenset({"child_page", "child_database", "synced_block"})
 
 APPEND_BATCH_SIZE = 100
 
@@ -98,7 +98,7 @@ async def fetch_recursive(
     recurse_indices = [
         i
         for i, b in enumerate(blocks)
-        if b.get("has_children") and b.get("type") not in _SKIP_RECURSE_TYPES
+        if b.get("has_children") and b.get("id") and b.get("type") not in _SKIP_RECURSE_TYPES
     ]
 
     if not recurse_indices:
