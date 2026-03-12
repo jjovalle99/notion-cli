@@ -116,6 +116,24 @@ class TestPageCreate:
         assert call_kwargs["icon"] == {"type": "emoji", "emoji": "📝"}
 
 
+class TestPageCreateDryRun:
+    def test_dry_run_outputs_payload_and_skips_api(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["page", "create", "--parent", PARENT_ID, "--title", "New Page", "--dry-run"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["dry_run"] is True
+        assert data["command"] == "page create"
+        assert "parent" in data["payload"]
+        mock_client.pages.create.assert_not_called()
+
+
 class TestPageCreateFileAndStdin:
     def test_create_with_at_file(
         self, runner: CliRunner, mock_client: AsyncMock, tmp_path: pathlib.Path
