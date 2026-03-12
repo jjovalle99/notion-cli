@@ -5,8 +5,8 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import timeout_option, token_option
-from notion_cli.output import ExitCode, format_error, format_json
+from notion_cli.options import fields_option, timeout_option, token_option
+from notion_cli.output import ExitCode, format_error, format_json, project_fields
 from notion_cli.parsing import extract_id, read_content
 
 _READ_ONLY_TYPES = frozenset(
@@ -32,6 +32,7 @@ async def get(
             help="Page ID or Notion URL. Example: 'abc123' or 'https://notion.so/My-Page-abc123'.",
         ),
     ],
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -46,12 +47,13 @@ async def get(
         notion page get https://notion.so/My-Page-abc123def456abc123def456abc123de
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     pid = extract_id(page_id)
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.pages.retrieve(pid), timeout)
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
 
 
 @page_app.command()
@@ -103,6 +105,7 @@ async def create(
             click_type=click.Choice(["page", "database"]),
         ),
     ] = "page",
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -121,6 +124,7 @@ async def create(
     """
 
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     parent_id = extract_id(parent)
 
     parent_key = f"{parent_type}_id"
@@ -142,7 +146,7 @@ async def create(
         else:
             coro = client.pages.create(**kwargs)
         result = await await_with_timeout(coro, timeout)
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
 
 
 @page_app.command()
@@ -187,6 +191,7 @@ async def update(
             help="Archive (--archive) or unarchive (--no-archive) the page.",
         ),
     ] = None,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -204,6 +209,7 @@ async def update(
     """
 
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     pid = extract_id(page_id)
 
     kwargs: dict[str, object] = {"page_id": pid}
@@ -235,7 +241,7 @@ async def update(
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.pages.update(**kwargs), timeout)
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
 
 
 @page_app.command()
@@ -252,6 +258,7 @@ async def move(
             help="New parent page ID or URL. Example: 'abc123' or a full Notion URL.",
         ),
     ],
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -265,6 +272,7 @@ async def move(
         notion page move abc123 --to https://notion.so/New-Parent-def456
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     pid = extract_id(page_id)
     new_parent_id = extract_id(to)
 
@@ -278,7 +286,10 @@ async def move(
             ),
             timeout,
         )
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))
+
+
+_SKIP_CONTENT_TYPES = frozenset({"child_page", "child_database", "unsupported"})
 
 
 @page_app.command()
@@ -288,21 +299,40 @@ async def duplicate(
         str,
         typer.Argument(help="Page ID or Notion URL to duplicate."),
     ],
+    with_content: Annotated[
+        bool,
+        typer.Option(
+            "--with-content",
+            help="Also copy page content blocks (not just properties).",
+        ),
+    ] = False,
+    destination: Annotated[
+        str | None,
+        typer.Option(
+            "--destination",
+            "-d",
+            help="Parent page ID/URL for the copy. Defaults to same parent as original.",
+        ),
+    ] = None,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """Duplicate a Notion page.
 
-    Creates a copy of the page including its properties. The duplicate is placed
-    in the same parent as the original. This is an async operation — the response
-    may return before the full copy is complete.
+    Creates a copy of the page including its properties, icon, and cover.
+    Use --with-content to also copy block content. Use --destination to
+    place the copy under a different parent page.
 
     Examples:
         notion page duplicate abc123
-        notion page duplicate https://notion.so/My-Page-abc123
+        notion page duplicate abc123 --with-content
+        notion page duplicate abc123 --destination def456
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     pid = extract_id(page_id)
+    dest_id = extract_id(destination) if destination else None
 
     from notion_client import AsyncClient
 
@@ -314,8 +344,9 @@ async def duplicate(
             for k, v in props.items()
             if isinstance(v, dict) and v.get("type") not in _READ_ONLY_TYPES
         }
+        parent = {"page_id": dest_id} if dest_id else original.get("parent", {})
         create_kwargs: dict[str, object] = {
-            "parent": original.get("parent", {}),
+            "parent": parent,
             "properties": writable_props,
         }
         if original.get("icon") is not None:
@@ -323,4 +354,17 @@ async def duplicate(
         if original.get("cover") is not None:
             create_kwargs["cover"] = original["cover"]
         result = await await_with_timeout(client.pages.create(**create_kwargs), timeout)
-    typer.echo(format_json(result))
+
+        if with_content:
+            from notion_cli._block_utils import APPEND_BATCH_SIZE, clean_block, fetch_recursive
+
+            blocks = await fetch_recursive(client, pid, timeout, max_depth=20)
+            cleaned = [clean_block(b) for b in blocks if b.get("type") not in _SKIP_CONTENT_TYPES]
+            new_page_id = result.get("id", "")
+            for i in range(0, len(cleaned), APPEND_BATCH_SIZE):
+                batch = cleaned[i : i + APPEND_BATCH_SIZE]
+                await await_with_timeout(
+                    client.blocks.children.append(new_page_id, children=batch), timeout
+                )
+
+    typer.echo(format_json(project_fields(result, fields_set)))

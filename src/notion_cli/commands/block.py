@@ -4,8 +4,8 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import timeout_option, token_option
-from notion_cli.output import format_json
+from notion_cli.options import fields_option, timeout_option, token_option
+from notion_cli.output import format_json, project_fields
 from notion_cli.parsing import extract_id, read_content
 
 block_app = typer.Typer(
@@ -40,43 +40,80 @@ async def get(
             help="Output content as Markdown instead of raw JSON blocks.",
         ),
     ] = False,
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit",
+            "-l",
+            help="Maximum number of blocks to return. Omit to return all.",
+        ),
+    ] = None,
+    recursive: Annotated[
+        bool,
+        typer.Option(
+            "--recursive",
+            "-r",
+            help="Recursively fetch nested blocks (toggles, sub-lists, etc.).",
+        ),
+    ] = False,
+    depth: Annotated[
+        int,
+        typer.Option(
+            "--depth",
+            help="Maximum nesting depth when using --recursive. 1 = top level only.",
+        ),
+    ] = 5,
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
     """List child blocks of a page or block.
 
     Returns raw JSON blocks by default. Use --markdown to convert the output
-    to readable Markdown text. If a child block has_children=true, call
-    this command again with that block's ID to recurse deeper.
+    to readable Markdown text. Use --recursive to include nested content.
 
     Examples:
         notion block get abc123
         notion block get abc123 --markdown
-        notion block get https://notion.so/My-Page-abc123 -m
+        notion block get abc123 --recursive --markdown
+        notion block get https://notion.so/My-Page-abc123 -r -m
     """
+    from notion_cli.parsing import validate_limit
+
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     bid = extract_id(block_id)
-    all_results: list[dict[str, object]] = []
+    validate_limit(limit)
+
     from notion_client import AsyncClient
 
+    all_results: list[dict[str, object]] = []
+    envelope: dict[str, object] = {}
+
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(client.blocks.children.list(bid), timeout)
-        all_results.extend(result.get("results") or [])
+        if recursive:
+            from notion_cli._block_utils import fetch_recursive
 
-        while result.get("has_more") and result.get("next_cursor") and result.get("results"):
-            result = await await_with_timeout(
-                client.blocks.children.list(bid, start_cursor=result["next_cursor"]), timeout
-            )
-            all_results.extend(result.get("results") or [])
+            all_results = await fetch_recursive(client, bid, timeout, max_depth=depth)
+            envelope = {"object": "list", "type": "block"}
+        else:
+            from notion_cli._block_utils import fetch_children
 
-        envelope = {k: v for k, v in result.items() if k not in ("results", "has_more")}
+            all_results, envelope = await fetch_children(client, bid, timeout, limit=limit)
+
+    if limit is not None:
+        all_results = all_results[:limit]
 
     if markdown:
         from notion_cli.markdown import blocks_to_markdown
 
         typer.echo(blocks_to_markdown(all_results), nl=False)
     else:
-        typer.echo(format_json({**envelope, "results": all_results, "has_more": False}))
+        typer.echo(
+            format_json(
+                {**envelope, "results": project_fields(all_results, fields_set), "has_more": False}
+            )
+        )
 
 
 @block_app.command()
@@ -101,6 +138,7 @@ async def append(
             ),
         ),
     ],
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -116,14 +154,20 @@ async def append(
     from notion_cli.parsing import parse_json
 
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     pid = extract_id(parent_id)
     raw = read_content(children)
     block_list = parse_json(raw, expected_type=list, label="--children")
 
     from notion_client import AsyncClient
 
+    from notion_cli._block_utils import APPEND_BATCH_SIZE
+
     async with AsyncClient(auth=resolved_token) as client:
-        result = await await_with_timeout(
-            client.blocks.children.append(pid, children=block_list), timeout
-        )
-    typer.echo(format_json(result))
+        result: dict[str, object] = {}
+        for i in range(0, len(block_list), APPEND_BATCH_SIZE):
+            batch = block_list[i : i + APPEND_BATCH_SIZE]
+            result = await await_with_timeout(
+                client.blocks.children.append(pid, children=batch), timeout
+            )
+    typer.echo(format_json(project_fields(result, fields_set)))

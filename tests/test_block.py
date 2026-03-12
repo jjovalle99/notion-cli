@@ -77,6 +77,138 @@ class TestBlockGet:
         # Should NOT be JSON
         assert "{" not in result.stdout
 
+    def test_get_with_limit(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        page1 = {"results": [{"id": f"child-{i}"} for i in range(3)], "has_more": False}
+        mock_client.blocks.children.list.return_value = page1
+
+        result = runner.invoke(
+            app, ["block", "get", BLOCK_ID, "--limit", "2"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["results"]) == 2
+
+    def test_get_limit_sets_page_size(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        mock_client.blocks.children.list.return_value = {
+            "results": [{"id": "child-1"}],
+            "has_more": False,
+        }
+
+        runner.invoke(
+            app, ["block", "get", BLOCK_ID, "--limit", "5"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        call_kwargs = mock_client.blocks.children.list.call_args.kwargs
+        assert call_kwargs["page_size"] == 5
+
+    def test_get_limit_stops_pagination_early(
+        self, runner: CliRunner, mock_client: AsyncMock
+    ) -> None:
+        page1 = {"results": [{"id": "child-1"}], "has_more": True, "next_cursor": "cur1"}
+        page2 = {"results": [{"id": "child-2"}], "has_more": True, "next_cursor": "cur2"}
+        mock_client.blocks.children.list.side_effect = [page1, page2]
+
+        result = runner.invoke(
+            app, ["block", "get", BLOCK_ID, "--limit", "2"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["results"]) == 2
+        assert mock_client.blocks.children.list.call_count == 2
+
+    def test_get_recursive(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        top_level = {
+            "results": [
+                {
+                    "id": "parent-1",
+                    "type": "toggle",
+                    "has_children": True,
+                    "toggle": {
+                        "rich_text": [
+                            {"type": "text", "text": {"content": "T"}, "annotations": {}}
+                        ]
+                    },
+                }
+            ],
+            "has_more": False,
+        }
+        nested = {
+            "results": [
+                {
+                    "id": "child-1",
+                    "type": "paragraph",
+                    "has_children": False,
+                    "paragraph": {"rich_text": []},
+                }
+            ],
+            "has_more": False,
+        }
+        mock_client.blocks.children.list.side_effect = [top_level, nested]
+
+        result = runner.invoke(
+            app,
+            ["block", "get", BLOCK_ID, "--recursive"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert data["results"][0]["children"][0]["id"] == "child-1"
+
+    def test_get_recursive_markdown(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        top_level = {
+            "results": [
+                {
+                    "id": "parent-1",
+                    "type": "bulleted_list_item",
+                    "has_children": True,
+                    "bulleted_list_item": {
+                        "rich_text": [
+                            {"type": "text", "text": {"content": "parent"}, "annotations": {}}
+                        ]
+                    },
+                }
+            ],
+            "has_more": False,
+        }
+        nested = {
+            "results": [
+                {
+                    "id": "child-1",
+                    "type": "bulleted_list_item",
+                    "has_children": False,
+                    "bulleted_list_item": {
+                        "rich_text": [
+                            {"type": "text", "text": {"content": "child"}, "annotations": {}}
+                        ]
+                    },
+                }
+            ],
+            "has_more": False,
+        }
+        mock_client.blocks.children.list.side_effect = [top_level, nested]
+
+        result = runner.invoke(
+            app,
+            ["block", "get", BLOCK_ID, "--recursive", "--markdown"],
+            env={"NOTION_API_KEY": "secret"},
+        )
+
+        assert result.exit_code == 0
+        assert "- parent" in result.stdout
+        assert "    - child" in result.stdout
+
+    def test_get_limit_zero_rejected(self, runner: CliRunner, mock_client: AsyncMock) -> None:
+        result = runner.invoke(
+            app, ["block", "get", BLOCK_ID, "--limit", "0"], env={"NOTION_API_KEY": "secret"}
+        )
+
+        assert result.exit_code == 2
+        error = json.loads(result.stderr)
+        assert error["error_type"] == "invalid_args"
+
 
 class TestBlockAppend:
     def test_append_children(self, runner: CliRunner, mock_client: AsyncMock) -> None:

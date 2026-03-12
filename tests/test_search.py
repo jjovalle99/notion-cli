@@ -27,6 +27,24 @@ def test_search_returns_results(runner: CliRunner, mock_client: AsyncMock) -> No
     assert data["results"][0]["id"] == "abc-123"
 
 
+def test_search_with_fields(runner: CliRunner, mock_client: AsyncMock) -> None:
+    mock_client.search.return_value = {
+        "results": [
+            {"id": "abc-123", "object": "page", "url": "https://notion.so/abc"},
+        ],
+        "has_more": False,
+    }
+
+    result = runner.invoke(
+        app, ["search", "test", "--fields", "id,url"], env={"NOTION_API_KEY": "secret"}
+    )
+
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["results"][0] == {"id": "abc-123", "url": "https://notion.so/abc"}
+    assert "object" not in data["results"][0]
+
+
 def test_search_empty_results(runner: CliRunner, mock_client: AsyncMock) -> None:
     mock_client.search.return_value = {"results": [], "has_more": False}
 

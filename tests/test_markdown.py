@@ -330,7 +330,82 @@ class TestBlocks:
         blocks = [{"type": "table_of_contents", "table_of_contents": {}}]
         assert blocks_to_markdown(blocks) == "[Table of Contents]\n"
 
-    def test_unknown_block_type_renders_text(self) -> None:
+    def test_nested_bullets(self) -> None:
+        blocks = [
+            {
+                "type": "bulleted_list_item",
+                "bulleted_list_item": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "parent"}, "annotations": {}}
+                    ]
+                },
+                "children": [
+                    {
+                        "type": "bulleted_list_item",
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"type": "text", "text": {"content": "child"}, "annotations": {}}
+                            ]
+                        },
+                    }
+                ],
+            }
+        ]
+        result = blocks_to_markdown(blocks)
+        assert "- parent" in result
+        assert "    - child" in result
+
+    def test_nested_numbered_list(self) -> None:
+        blocks = [
+            {
+                "type": "numbered_list_item",
+                "numbered_list_item": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "first"}, "annotations": {}}
+                    ]
+                },
+                "children": [
+                    {
+                        "type": "numbered_list_item",
+                        "numbered_list_item": {
+                            "rich_text": [
+                                {"type": "text", "text": {"content": "nested"}, "annotations": {}}
+                            ]
+                        },
+                    }
+                ],
+            }
+        ]
+        result = blocks_to_markdown(blocks)
+        assert "1. first" in result
+        assert "    1. nested" in result
+
+    def test_toggle_with_children(self) -> None:
+        blocks = [
+            {
+                "type": "toggle",
+                "toggle": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "Click me"}, "annotations": {}}
+                    ]
+                },
+                "children": [
+                    {
+                        "type": "paragraph",
+                        "paragraph": {
+                            "rich_text": [
+                                {"type": "text", "text": {"content": "Hidden"}, "annotations": {}}
+                            ]
+                        },
+                    }
+                ],
+            }
+        ]
+        result = blocks_to_markdown(blocks)
+        assert "Click me" in result
+        assert "    Hidden" in result
+
+    def test_toggle_renders_as_bold_list_item(self) -> None:
         blocks = [
             {
                 "type": "toggle",
@@ -341,4 +416,17 @@ class TestBlocks:
                 },
             }
         ]
-        assert blocks_to_markdown(blocks) == "toggled\n"
+        assert blocks_to_markdown(blocks) == "- **toggled**\n"
+
+    def test_unknown_block_type_renders_text(self) -> None:
+        blocks = [
+            {
+                "type": "synced_block",
+                "synced_block": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "synced"}, "annotations": {}}
+                    ]
+                },
+            }
+        ]
+        assert blocks_to_markdown(blocks) == "synced\n"

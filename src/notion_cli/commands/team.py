@@ -4,8 +4,8 @@ import typer
 
 from notion_cli._async import await_with_timeout, run_async
 from notion_cli.auth import resolve_token
-from notion_cli.options import timeout_option, token_option
-from notion_cli.output import format_json
+from notion_cli.options import fields_option, timeout_option, token_option
+from notion_cli.output import format_json, project_fields
 
 team_app = typer.Typer(
     name="team",
@@ -21,6 +21,7 @@ team_app = typer.Typer(
 @team_app.command(name="list")
 @run_async
 async def list_teams(
+    fields: Annotated[str | None, fields_option()] = None,
     token: Annotated[str | None, token_option()] = None,
     timeout: Annotated[float | None, timeout_option()] = None,
 ) -> None:
@@ -33,8 +34,9 @@ async def list_teams(
         notion team list
     """
     resolved_token = resolve_token(token=token)
+    fields_set = set(fields.split(",")) if fields else None
     from notion_client import AsyncClient
 
     async with AsyncClient(auth=resolved_token) as client:
         result = await await_with_timeout(client.request(path="teamspaces", method="GET"), timeout)
-    typer.echo(format_json(result))
+    typer.echo(format_json(project_fields(result, fields_set)))

@@ -1,6 +1,29 @@
 import json
 
-from notion_cli.output import format_json, format_error, ExitCode
+from notion_cli.output import ExitCode, format_error, format_json, project_fields
+
+
+def test_project_fields_dict() -> None:
+    data = {"id": "abc", "title": "Test", "url": "https://example.com"}
+    result = project_fields(data, {"id", "url"})
+    assert result == {"id": "abc", "url": "https://example.com"}
+
+
+def test_project_fields_list() -> None:
+    data = [{"id": "1", "name": "A"}, {"id": "2", "name": "B"}]
+    result = project_fields(data, {"id"})
+    assert result == [{"id": "1"}, {"id": "2"}]
+
+
+def test_project_fields_none_returns_unchanged() -> None:
+    data = {"id": "abc", "title": "Test"}
+    assert project_fields(data, None) is data
+
+
+def test_project_fields_empty_set() -> None:
+    data = {"id": "abc", "title": "Test"}
+    result = project_fields(data, set())
+    assert result == {}
 
 
 def test_format_json_dict() -> None:
