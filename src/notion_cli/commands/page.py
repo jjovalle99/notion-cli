@@ -611,3 +611,97 @@ async def edit(
             )
 
     typer.echo(format_json({"blocks_modified": len(modifications)}))
+
+
+@page_app.command()
+@run_async
+async def grep(
+    page_id: Annotated[
+        str,
+        typer.Argument(help="Page ID or Notion URL to search."),
+    ],
+    pattern: Annotated[
+        str,
+        typer.Argument(help="Text or regex pattern to search for."),
+    ],
+    regex: Annotated[
+        bool,
+        typer.Option("--regex", "-E", help="Treat pattern as a regular expression."),
+    ] = False,
+    ignore_case: Annotated[
+        bool,
+        typer.Option("--ignore-case", "-i", help="Case-insensitive matching."),
+    ] = False,
+    count: Annotated[
+        bool,
+        typer.Option("--count", "-c", help="Print only the match count."),
+    ] = False,
+    token: Annotated[str | None, token_option()] = None,
+    timeout: Annotated[float | None, timeout_option()] = None,
+) -> None:
+    """Search for text within a page's content blocks.
+
+    Scans all text blocks (paragraphs, headings, lists, etc.) recursively.
+    Returns matching blocks with match positions. Supports literal and regex
+    patterns.
+
+    Examples:
+        notion page grep abc123 "search term"
+        notion page grep abc123 "TODO" --ignore-case
+        notion page grep abc123 "\\d{4}-\\d{2}-\\d{2}" --regex
+        notion page grep abc123 "error" --count
+    """
+    import re
+
+    from notion_cli._block_utils import RICH_TEXT_BLOCK_TYPES, fetch_recursive, flatten_blocks
+
+    resolved_token = resolve_token(token=token)
+    pid = extract_id(page_id)
+
+    flags = re.IGNORECASE if ignore_case else 0
+    if regex:
+        compiled = re.compile(pattern, flags)
+    else:
+        compiled = re.compile(re.escape(pattern), flags)
+
+    from notion_client import AsyncClient
+
+    async with AsyncClient(auth=resolved_token) as client:
+        blocks = await fetch_recursive(client, pid, timeout, max_depth=20)
+
+    flat = flatten_blocks(blocks)
+    results: list[dict[str, object]] = []
+
+    for idx, block in enumerate(flat):
+        btype = block.get("type", "")
+        if btype not in RICH_TEXT_BLOCK_TYPES:
+            continue
+        type_data = block.get(btype)
+        if not type_data or "rich_text" not in type_data:
+            continue
+        text = "".join(
+            span["text"]["content"]
+            for span in type_data["rich_text"]
+            if span.get("type") == "text"
+        )
+        if not text:
+            continue
+        matches = [
+            {"start": m.start(), "end": m.end(), "text": m.group()}
+            for m in compiled.finditer(text)
+        ]
+        if matches:
+            results.append(
+                {
+                    "block_id": block["id"],
+                    "block_type": btype,
+                    "block_index": idx,
+                    "text": text,
+                    "matches": matches,
+                }
+            )
+
+    if count:
+        typer.echo(format_json({"match_count": len(results)}))
+    else:
+        typer.echo(format_json({"match_count": len(results), "results": results}))
