@@ -1,5 +1,6 @@
 import enum
 import json
+import sys
 
 
 class ExitCode(enum.IntEnum):
@@ -30,6 +31,13 @@ def project_fields(data: object, fields: set[str] | None) -> object:
             for item in data
         ]
     return data
+
+
+def stream_ndjson_page(items: list[object], fields: set[str] | None) -> None:
+    """Write a page of items to stdout as NDJSON, flushing immediately."""
+    for item in items:
+        sys.stdout.write(format_json(project_fields(item, fields)) + "\n")
+    sys.stdout.flush()
 
 
 def format_error(error_type: str, message: str, *, suggestion: str | None = None) -> str:
