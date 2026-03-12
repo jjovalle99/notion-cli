@@ -1,5 +1,6 @@
 import enum
 import json
+import sys
 
 
 class ExitCode(enum.IntEnum):
@@ -12,9 +13,12 @@ class ExitCode(enum.IntEnum):
 
 
 _COMPACT = (",", ":")
+_STDOUT_IS_TTY = sys.stdout.isatty()
 
 
 def format_json(data: object) -> str:
+    if _STDOUT_IS_TTY:
+        return json.dumps(data, default=str, indent=2)
     return json.dumps(data, default=str, separators=_COMPACT)
 
 
