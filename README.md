@@ -24,6 +24,7 @@ uvx notionctl search "my page"
 
 # Or install permanently
 uv tool install notionctl   # installs both `notionctl` and `notion` commands
+pipx install notionctl
 pip install notionctl
 ```
 
