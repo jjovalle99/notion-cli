@@ -1,6 +1,6 @@
 [project]
 name = "notionctl"
-version = "0.3.0"
+version = "0.3.1"
 description = "Notion CLI built for coding agents. Compact JSON, structured errors, meaningful exit codes."
 readme = "README.md"
 authors = [
@@ -14,6 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
+notionctl = "notion_cli.cli:app"
 notion = "notion_cli.cli:app"
 
 [dependency-groups]

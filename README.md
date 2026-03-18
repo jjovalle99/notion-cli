@@ -20,10 +20,10 @@ notion page update "$ROW_ID" --properties '{"Status":{"select":{"name":"Done"}}}
 
 ```bash
 # Run without installing
-uvx --from notionctl notion search "my page"
+uvx notionctl search "my page"
 
 # Or install permanently
-uv tool install notionctl
+uv tool install notionctl   # installs both `notionctl` and `notion` commands
 pip install notionctl
 ```
 
