@@ -4,6 +4,7 @@
 [![codecov](https://codecov.io/gh/jjovalle99/notion-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/jjovalle99/notion-cli)
 [![PyPI version](https://img.shields.io/pypi/v/notionctl)](https://pypi.org/project/notionctl/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Downloads](https://static.pepy.tech/badge/notionctl)](https://pepy.tech/project/notionctl)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Notion CLI built for coding agents. Compact JSON to stdout, structured errors to stderr, meaningful exit codes. Works with Claude Code, Codex, Mistral Vibe or standalone.
